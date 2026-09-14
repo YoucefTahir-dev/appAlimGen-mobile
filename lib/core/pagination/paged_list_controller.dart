@@ -12,7 +12,10 @@ abstract class PagedListController<T> extends Notifier<PagedListState<T>> {
   PagedListState<T> build() {
     ref.onDispose(() => _debounce?.cancel());
     Future.microtask(refresh);
-    return const PagedListState();
+    // Keep the runtime generic type. A const constructor without an explicit
+    // type argument is inferred as PagedListState<Never>, which crashes when
+    // the first API page contains typed models (for example SupplierSummary).
+    return PagedListState<T>();
   }
 
   Future<void> refresh() async {
