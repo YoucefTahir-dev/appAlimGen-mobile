@@ -111,4 +111,76 @@ void main() {
     expect(await storage.read(), isNull);
     events.dispose();
   });
+
+  test('un refresh invalide efface la session et ne boucle pas', () async {
+    final storage = MemoryTokenStorage()
+      ..value = const StoredTokens(access: 'expired', refresh: 'invalid');
+    final events = SessionEvents();
+    final expired = Completer<void>();
+    events.expired.listen((_) => expired.complete());
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'));
+    final refreshDio = Dio(
+      BaseOptions(baseUrl: 'https://example.test/api/v1/'),
+    );
+    var refreshCalls = 0;
+    dio.httpClientAdapter = _Adapter(
+      (_) async => _json(401, {
+        'success': false,
+        'error': {'code': 'AUTHENTICATION_REQUIRED', 'message': 'Expired'},
+      }),
+    );
+    refreshDio.httpClientAdapter = _Adapter((_) async {
+      refreshCalls++;
+      return _json(401, {
+        'success': false,
+        'error': {'code': 'TOKEN_REVOKED', 'message': 'Revoked'},
+      });
+    });
+    ApiClient(
+      storage: storage,
+      sessionEvents: events,
+      dio: dio,
+      refreshDio: refreshDio,
+    );
+
+    await expectLater(
+      dio.get<dynamic>('products/'),
+      throwsA(isA<DioException>()),
+    );
+    await expired.future;
+    expect(refreshCalls, 1);
+    expect(await storage.read(), isNull);
+    events.dispose();
+  });
+
+  test('ajoute Bearer aux routes protégées mais jamais au login', () async {
+    final storage = MemoryTokenStorage()
+      ..value = const StoredTokens(access: 'secret-access', refresh: 'refresh');
+    final events = SessionEvents();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'));
+    final refreshDio = Dio(
+      BaseOptions(baseUrl: 'https://example.test/api/v1/'),
+    );
+    final headers = <String, Object?>{};
+    dio.httpClientAdapter = _Adapter((options) async {
+      headers[options.path] = options.headers['Authorization'];
+      return _json(200, {
+        'success': true,
+        'data': {'ok': true},
+      });
+    });
+    ApiClient(
+      storage: storage,
+      sessionEvents: events,
+      dio: dio,
+      refreshDio: refreshDio,
+    );
+
+    await dio.get<dynamic>('products/');
+    await dio.post<dynamic>('auth/login/', data: const {});
+
+    expect(headers['products/'], 'Bearer secret-access');
+    expect(headers['auth/login/'], isNull);
+    events.dispose();
+  });
 }

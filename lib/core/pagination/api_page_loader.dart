@@ -10,10 +10,12 @@ Future<PageData<T>> loadApiPage<T>({
   required int page,
   required String query,
   required T Function(Map<String, dynamic>) decode,
+  CancelToken? cancelToken,
 }) async {
   try {
     final response = await dio.get<dynamic>(
       path,
+      cancelToken: cancelToken,
       queryParameters: {
         'page': page,
         'page_size': 25,

@@ -21,6 +21,14 @@ class AppConfig {
       uri.host == 'localhost' ||
       uri.host == '127.0.0.1' ||
       uri.host == '10.0.2.2';
+  static String get environmentLabel {
+    final uri = apiBaseUri;
+    if (isLocalDevelopment(uri)) return 'DEV';
+    if (uri.host.toLowerCase().contains('staging')) return 'STAGING';
+    return 'PROD';
+  }
+
   static const connectTimeout = Duration(seconds: 15);
+  static const sendTimeout = Duration(seconds: 15);
   static const receiveTimeout = Duration(seconds: 25);
 }

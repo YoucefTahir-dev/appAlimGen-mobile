@@ -65,6 +65,6 @@ abstract class PagedListController<T> extends Notifier<PagedListState<T>> {
     _debounce?.cancel();
     final query = value.trim();
     state = state.copyWith(query: query);
-    _debounce = Timer(const Duration(milliseconds: 400), refresh);
+    _debounce = Timer(const Duration(milliseconds: 300), refresh);
   }
 }

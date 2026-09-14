@@ -1,7 +1,9 @@
+import 'package:app_alim_gen_mobile/core/config/app_config.dart';
 import 'package:app_alim_gen_mobile/core/navigation/app_module.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +29,12 @@ class AppDrawer extends ConsumerWidget {
           ),
         ),
         accountName: Text(user?.displayName ?? ''),
-        accountEmail: Text(user?.role ?? ''),
+        accountEmail: Text(
+          [
+            user?.role ?? '',
+            if (kDebugMode) 'API: ${AppConfig.environmentLabel}',
+          ].where((value) => value.isNotEmpty).join(' • '),
+        ),
         decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
       ),
     ];

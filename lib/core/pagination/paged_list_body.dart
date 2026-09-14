@@ -117,7 +117,18 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
       return Column(
         children: [
           ?search,
-          Expanded(child: Center(child: Text(strings.empty))),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: ref.read(widget.provider.notifier).refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 180),
+                  Center(child: Text(strings.empty)),
+                ],
+              ),
+            ),
+          ),
         ],
       );
     }
@@ -132,14 +143,28 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(12),
-              itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
+              itemCount:
+                  state.items.length +
+                  (state.isLoadingMore || state.error != null ? 1 : 0),
               separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) => index == state.items.length
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : widget.itemBuilder(context, state.items[index]),
+              itemBuilder: (context, index) {
+                if (index < state.items.length) {
+                  return widget.itemBuilder(context, state.items[index]);
+                }
+                if (state.isLoadingMore) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return Center(
+                  child: TextButton.icon(
+                    onPressed: ref.read(widget.provider.notifier).loadMore,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(strings.retry),
+                  ),
+                );
+              },
             ),
           ),
         ),

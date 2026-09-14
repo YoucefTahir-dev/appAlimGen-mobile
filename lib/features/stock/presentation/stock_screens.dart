@@ -74,7 +74,6 @@ class OperatorStockScreen extends StatelessWidget {
       path: '/operator-stock',
       body: PagedListBody<OperatorStockSummary, OperatorStockController>(
         provider: operatorStockProvider,
-        searchable: true,
         itemBuilder: (_, item) => Card(
           child: Padding(
             padding: const EdgeInsets.all(16),

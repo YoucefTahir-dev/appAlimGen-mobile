@@ -49,21 +49,16 @@ class OperatorStockRepository {
     final activity = current == null
         ? const <int, LoadingLineSummary>{}
         : {for (final line in current.lines) line.productId: line};
-    final filtered = stock.items
+    final enriched = stock.items
         .map((item) {
           final line = activity[item.productId];
           return line == null
               ? item
               : item.copyWithActivity(loaded: line.loaded, sold: line.sold);
         })
-        .where(
-          (item) =>
-              query.isEmpty ||
-              item.productName.toLowerCase().contains(query.toLowerCase()),
-        )
         .toList(growable: false);
     return PageData(
-      items: filtered,
+      items: enriched,
       count: stock.count,
       hasNext: stock.hasNext,
     );

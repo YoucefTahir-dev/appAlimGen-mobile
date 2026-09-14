@@ -20,14 +20,14 @@ class AuthState {
 }
 
 class AuthController extends Notifier<AuthState> {
-  StreamSubscription<void>? _expiration;
+  StreamSubscription<AppFailure>? _expiration;
 
   @override
   AuthState build() {
     _expiration = ref
         .read(sessionEventsProvider)
         .expired
-        .listen((_) => state = const AuthState.unauthenticated());
+        .listen((failure) => state = AuthState.unauthenticated(failure));
     ref.onDispose(() => _expiration?.cancel());
     Future.microtask(restore);
     return const AuthState.restoring();

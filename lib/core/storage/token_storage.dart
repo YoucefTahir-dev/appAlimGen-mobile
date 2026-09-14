@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class StoredTokens {
@@ -18,30 +20,63 @@ class SecureTokenStorage implements TokenStorage {
           storage ?? const FlutterSecureStorage(aOptions: AndroidOptions());
   static const _accessKey = 'auth.access';
   static const _refreshKey = 'auth.refresh';
+  static const _sessionKey = 'auth.session.v1';
   final FlutterSecureStorage _storage;
 
   @override
   Future<StoredTokens?> read() async {
-    final values = await _storage.readAll();
-    final access = values[_accessKey];
-    final refresh = values[_refreshKey];
+    final encoded = await _storage.read(key: _sessionKey);
+    if (encoded != null && encoded.isNotEmpty) {
+      try {
+        final value = jsonDecode(encoded);
+        if (value is Map) {
+          final access = value['access']?.toString();
+          final refresh = value['refresh']?.toString();
+          if (access != null &&
+              access.isNotEmpty &&
+              refresh != null &&
+              refresh.isNotEmpty) {
+            return StoredTokens(access: access, refresh: refresh);
+          }
+        }
+      } on FormatException {
+        await clear();
+        return null;
+      }
+    }
+
+    // Migration transparente depuis le stockage utilisé par les premières APK.
+    final access = await _storage.read(key: _accessKey);
+    final refresh = await _storage.read(key: _refreshKey);
     if (access == null ||
         refresh == null ||
         access.isEmpty ||
         refresh.isEmpty) {
       return null;
     }
-    return StoredTokens(access: access, refresh: refresh);
+    final tokens = StoredTokens(access: access, refresh: refresh);
+    await write(tokens);
+    return tokens;
   }
 
   @override
   Future<void> write(StoredTokens tokens) async {
-    await _storage.write(key: _refreshKey, value: tokens.refresh);
-    await _storage.write(key: _accessKey, value: tokens.access);
+    // Une seule écriture empêche de lire un access et un refresh de rotations
+    // différentes si l'application est interrompue pendant la sauvegarde.
+    await _storage.write(
+      key: _sessionKey,
+      value: jsonEncode({'access': tokens.access, 'refresh': tokens.refresh}),
+    );
+    await _storage.delete(key: _accessKey);
+    await _storage.delete(key: _refreshKey);
   }
 
   @override
-  Future<void> clear() => _storage.deleteAll();
+  Future<void> clear() async {
+    await _storage.delete(key: _sessionKey);
+    await _storage.delete(key: _accessKey);
+    await _storage.delete(key: _refreshKey);
+  }
 }
 
 class MemoryTokenStorage implements TokenStorage {

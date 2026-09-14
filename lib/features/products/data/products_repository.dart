@@ -5,19 +5,36 @@ import 'package:app_alim_gen_mobile/features/products/domain/product_summary.dar
 import 'package:dio/dio.dart';
 
 class ProductsRepository {
-  const ProductsRepository(this._dio, this._errors, {this.path = 'products/'});
+  ProductsRepository(this._dio, this._errors, {this.path = 'products/'});
   final Dio _dio;
   final ErrorMapper _errors;
   final String path;
+  CancelToken? _activeFirstPage;
+
   Future<PageData<ProductSummary>> fetch({
     required int page,
     String query = '',
-  }) => loadApiPage(
-    dio: _dio,
-    errors: _errors,
-    path: path,
-    page: page,
-    query: query,
-    decode: ProductSummary.fromJson,
-  );
+  }) async {
+    CancelToken? cancelToken;
+    if (page == 1) {
+      _activeFirstPage?.cancel('Recherche remplacée');
+      cancelToken = CancelToken();
+      _activeFirstPage = cancelToken;
+    }
+    try {
+      return await loadApiPage(
+        dio: _dio,
+        errors: _errors,
+        path: path,
+        page: page,
+        query: query,
+        cancelToken: cancelToken,
+        decode: ProductSummary.fromJson,
+      );
+    } finally {
+      if (identical(_activeFirstPage, cancelToken)) {
+        _activeFirstPage = null;
+      }
+    }
+  }
 }

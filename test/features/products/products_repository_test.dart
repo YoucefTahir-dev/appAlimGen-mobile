@@ -113,4 +113,48 @@ void main() {
       ),
     );
   });
+
+  test('convertit un timeout en erreur structurée', () async {
+    adapter.onGet(
+      'products/',
+      (server) => server.throws(
+        0,
+        DioException(
+          requestOptions: RequestOptions(path: 'products/'),
+          type: DioExceptionType.receiveTimeout,
+        ),
+      ),
+      queryParameters: {'page': 1, 'page_size': 25},
+    );
+
+    await expectLater(
+      repository.fetch(page: 1),
+      throwsA(
+        isA<AppFailure>().having(
+          (failure) => failure.kind,
+          'kind',
+          FailureKind.timeout,
+        ),
+      ),
+    );
+  });
+
+  test('rejette un JSON qui ne respecte pas l’enveloppe paginée', () async {
+    adapter.onGet(
+      'products/',
+      (server) => server.reply(200, {'unexpected': true}),
+      queryParameters: {'page': 1, 'page_size': 25},
+    );
+
+    await expectLater(
+      repository.fetch(page: 1),
+      throwsA(
+        isA<AppFailure>().having(
+          (failure) => failure.kind,
+          'kind',
+          FailureKind.unknown,
+        ),
+      ),
+    );
+  });
 }
