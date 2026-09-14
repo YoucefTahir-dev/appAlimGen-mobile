@@ -27,7 +27,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (auth.status == AuthStatus.authenticated &&
           (atLogin || state.matchedLocation == '/splash')) {
-        return '/dashboard';
+        return auth.user?.can('accounts.view_dashboard') ?? false
+            ? '/dashboard'
+            : '/profile';
+      }
+      if (auth.status == AuthStatus.authenticated &&
+          state.matchedLocation == '/dashboard' &&
+          !(auth.user?.can('accounts.view_dashboard') ?? false)) {
+        return '/profile';
       }
       return null;
     },

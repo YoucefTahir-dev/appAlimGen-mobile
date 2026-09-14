@@ -14,6 +14,23 @@ class DashboardScreen extends ConsumerWidget {
     final strings = AppLocalizations.of(context);
     final user = ref.watch(authControllerProvider).user;
     final dashboard = ref.watch(dashboardProvider);
+    final menu = <(String, NavigationDrawerDestination)>[
+      if (user?.can('accounts.view_dashboard') ?? false)
+        (
+          '/dashboard',
+          NavigationDrawerDestination(
+            icon: const Icon(Icons.dashboard_outlined),
+            label: Text(strings.dashboard),
+          ),
+        ),
+      (
+        '/profile',
+        NavigationDrawerDestination(
+          icon: const Icon(Icons.person_outline),
+          label: Text(strings.profile),
+        ),
+      ),
+    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(strings.dashboard),
@@ -27,6 +44,10 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       drawer: NavigationDrawer(
+        onDestinationSelected: (index) {
+          Navigator.pop(context);
+          context.go(menu[index].$1);
+        },
         children: [
           Padding(
             padding: const EdgeInsets.all(20),
@@ -35,15 +56,7 @@ class DashboardScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
-          if (user?.can('accounts.view_dashboard') ?? false)
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.dashboard_outlined),
-              label: Text(strings.dashboard),
-            ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.person_outline),
-            label: Text(strings.profile),
-          ),
+          ...menu.map((item) => item.$2),
         ],
       ),
       body: RefreshIndicator(
