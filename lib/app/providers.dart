@@ -4,7 +4,13 @@ import 'package:app_alim_gen_mobile/core/network/session_events.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/auth_repository.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/session_repository.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/data/business_repositories.dart';
+import 'package:app_alim_gen_mobile/features/clients/data/clients_repository.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/data/dashboard_repository.dart';
+import 'package:app_alim_gen_mobile/features/loading_orders/data/loading_orders_repository.dart';
+import 'package:app_alim_gen_mobile/features/printers/data/printers_repository.dart';
+import 'package:app_alim_gen_mobile/features/products/data/products_repository.dart';
+import 'package:app_alim_gen_mobile/features/stock/data/stock_repository.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,6 +43,79 @@ final authRepositoryProvider = Provider<AuthRepository>(
 );
 final dashboardRepositoryProvider = Provider<DashboardRepository>(
   (ref) => DashboardRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final productsRepositoryProvider = Provider<ProductsRepository>(
+  (ref) => ProductsRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final clientsRepositoryProvider = Provider<ClientsRepository>(
+  (ref) => ClientsRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final invoicesRepositoryProvider = Provider<InvoicesRepository>(
+  (ref) => InvoicesRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final suppliersRepositoryProvider = Provider<SuppliersRepository>(
+  (ref) => SuppliersRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final salesRepositoryProvider = Provider<SalesRepository>(
+  (ref) => SalesRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final purchasesRepositoryProvider = Provider<PurchasesRepository>(
+  (ref) => PurchasesRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final expensesRepositoryProvider = Provider<ExpensesRepository>(
+  (ref) => ExpensesRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final paymentsRepositoryProvider = Provider<PaymentsRepository>(
+  (ref) => PaymentsRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final loadingOrdersRepositoryProvider = Provider<LoadingOrdersRepository>(
+  (ref) => LoadingOrdersRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final stockRepositoryProvider = Provider<StockRepository>(
+  (ref) => StockRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final operatorStockRepositoryProvider = Provider<OperatorStockRepository>(
+  (ref) => OperatorStockRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+    ref.watch(loadingOrdersRepositoryProvider),
+  ),
+);
+final printersRepositoryProvider = Provider<PrintersRepository>(
+  (ref) => PrintersRepository(
     ref.watch(apiClientProvider).dio,
     ref.watch(errorMapperProvider),
   ),

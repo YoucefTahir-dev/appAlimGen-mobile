@@ -1,3 +1,4 @@
+import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -9,8 +10,9 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = AppLocalizations.of(context);
     final user = ref.watch(authControllerProvider).user;
-    return Scaffold(
-      appBar: AppBar(title: Text(strings.profile)),
+    return ModuleScaffold(
+      title: strings.profile,
+      path: '/profile',
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
