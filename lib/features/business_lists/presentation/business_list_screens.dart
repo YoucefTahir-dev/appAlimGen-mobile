@@ -1,10 +1,16 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
+import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
+import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/supplier_form_screen.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/expense_form_screen.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
+import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -126,30 +132,126 @@ class InvoicesScreen extends StatelessWidget {
   }
 }
 
-class SuppliersScreen extends StatelessWidget {
+class SuppliersScreen extends ConsumerWidget {
   const SuppliersScreen({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final crud = CrudStrings.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final canAdd = user?.can(AppPermissions.addSupplier) ?? false;
+    final canChange = user?.can(AppPermissions.changeSupplier) ?? false;
+    final canDelete = user?.can(AppPermissions.deleteSupplier) ?? false;
     return ModuleScaffold(
       title: s.suppliers,
       path: '/suppliers',
       body: PagedListBody<SupplierSummary, SuppliersController>(
         provider: suppliersProvider,
         searchable: true,
-        itemBuilder: (context, item) => _recordCard(
-          context,
-          icon: Icons.local_shipping_outlined,
-          title: item.name,
-          details: [
-            if (item.phone.isNotEmpty) '${s.text('phone')}: ${item.phone}',
-            if (item.address.isNotEmpty)
-              '${s.text('address')}: ${item.address}',
-          ],
-          amount: '',
+        itemBuilder: (context, item) => Card(
+          child: ListTile(
+            leading: const Icon(Icons.local_shipping_outlined),
+            title: Text(item.name),
+            subtitle: Text(
+              [
+                if (item.phone.isNotEmpty) '${s.text('phone')}: ${item.phone}',
+                if (item.address.isNotEmpty)
+                  '${s.text('address')}: ${item.address}',
+              ].join('\n'),
+            ),
+            trailing: canChange || canDelete
+                ? PopupMenuButton<String>(
+                    onSelected: (action) async {
+                      if (action == 'edit') {
+                        final changed = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                SupplierFormScreen(supplierId: item.id),
+                          ),
+                        );
+                        if (changed == true) {
+                          ref.read(suppliersProvider.notifier).refresh();
+                        }
+                      } else {
+                        await _deleteSupplier(context, ref, item);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      if (canChange)
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(crud.text('edit')),
+                        ),
+                      if (canDelete)
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(crud.text('delete')),
+                        ),
+                    ],
+                  )
+                : null,
+          ),
         ),
       ),
+      floatingActionButton: canAdd
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final changed = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const SupplierFormScreen()),
+                );
+                if (changed == true) {
+                  ref.read(suppliersProvider.notifier).refresh();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: Text(crud.text('newSupplier')),
+            )
+          : null,
     );
+  }
+
+  Future<void> _deleteSupplier(
+    BuildContext context,
+    WidgetRef ref,
+    SupplierSummary item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(CrudStrings.of(context).text('confirmDelete')),
+        content: Text(item.name),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(CrudStrings.of(context).text('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(CrudStrings.of(context).text('delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref.read(suppliersRepositoryProvider).delete(item.id);
+      await ref.read(suppliersProvider.notifier).refresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Suppression réussie.')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is AppFailure ? error.message : 'Suppression impossible.',
+            ),
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -205,29 +307,127 @@ class PurchasesScreen extends StatelessWidget {
   }
 }
 
-class ExpensesScreen extends StatelessWidget {
+class ExpensesScreen extends ConsumerWidget {
   const ExpensesScreen({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final crud = CrudStrings.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final canAdd = user?.can(AppPermissions.addExpense) ?? false;
+    final canChange = user?.can(AppPermissions.changeExpense) ?? false;
+    final canDelete = user?.can(AppPermissions.deleteExpense) ?? false;
     return ModuleScaffold(
       title: s.text('expenses'),
       path: '/expenses',
       body: PagedListBody<ExpenseSummary, ExpensesController>(
         provider: expensesProvider,
-        itemBuilder: (context, item) => _recordCard(
-          context,
-          icon: Icons.account_balance_wallet_outlined,
-          title: item.number,
-          details: [
-            item.description,
-            '${s.text('date')}: ${_date(item.date)}',
-            item.paymentMethod,
-          ],
-          amount: '${item.amount} DZD',
+        itemBuilder: (context, item) => Card(
+          child: ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: Text(item.number),
+            subtitle: Text(
+              '${item.description}\n${s.text('date')}: ${_date(item.date)}\n${item.paymentMethod}',
+            ),
+            isThreeLine: true,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${item.amount} DZD'),
+                if (canChange || canDelete)
+                  PopupMenuButton<String>(
+                    onSelected: (action) async {
+                      if (action == 'edit') {
+                        final changed = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ExpenseFormScreen(expenseId: item.id),
+                          ),
+                        );
+                        if (changed == true) {
+                          ref.read(expensesProvider.notifier).refresh();
+                        }
+                      } else {
+                        await _deleteExpense(context, ref, item);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      if (canChange)
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(crud.text('edit')),
+                        ),
+                      if (canDelete)
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(crud.text('delete')),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
+      floatingActionButton: canAdd
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final changed = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const ExpenseFormScreen()),
+                );
+                if (changed == true) {
+                  ref.read(expensesProvider.notifier).refresh();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: Text(crud.text('newExpense')),
+            )
+          : null,
     );
+  }
+
+  Future<void> _deleteExpense(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseSummary item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(CrudStrings.of(context).text('confirmDelete')),
+        content: Text(item.number),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(CrudStrings.of(context).text('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(CrudStrings.of(context).text('delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref.read(expensesRepositoryProvider).delete(item.id);
+      await ref.read(expensesProvider.notifier).refresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Suppression réussie.')));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is AppFailure ? error.message : 'Suppression impossible.',
+            ),
+          ),
+        );
+      }
+    }
   }
 }
 

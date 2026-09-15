@@ -43,6 +43,58 @@ class SupplierSummary {
       );
 }
 
+class SupplierDetails {
+  const SupplierDetails({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.address,
+    required this.wilaya,
+    required this.email,
+    required this.rcNumber,
+    required this.taxNumber,
+    required this.notes,
+  });
+  final int id;
+  final String name, phone, address, wilaya, email, rcNumber, taxNumber, notes;
+  factory SupplierDetails.fromJson(Map<String, dynamic> json) =>
+      SupplierDetails(
+        id: (json['id'] as num).toInt(),
+        name: json['name']?.toString() ?? '',
+        phone: json['phone']?.toString() ?? '',
+        address: json['address']?.toString() ?? '',
+        wilaya: json['wilaya']?.toString() ?? '',
+        email: json['email']?.toString() ?? '',
+        rcNumber: json['rc_number']?.toString() ?? '',
+        taxNumber: json['tax_number']?.toString() ?? '',
+        notes: json['notes']?.toString() ?? '',
+      );
+}
+
+class SupplierWriteRequest {
+  const SupplierWriteRequest({
+    required this.name,
+    required this.phone,
+    required this.address,
+    required this.wilaya,
+    required this.email,
+    required this.rcNumber,
+    required this.taxNumber,
+    required this.notes,
+  });
+  final String name, phone, address, wilaya, email, rcNumber, taxNumber, notes;
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'phone': phone,
+    'address': address,
+    'wilaya': wilaya,
+    'email': email,
+    'rc_number': rcNumber,
+    'tax_number': taxNumber,
+    'notes': notes,
+  };
+}
+
 class SaleSummary {
   const SaleSummary({
     required this.id,
@@ -119,6 +171,66 @@ class ExpenseSummary {
     description: json['description']?.toString() ?? '',
     amount: json['amount']?.toString() ?? '0.00',
     paymentMethod: json['payment_method']?.toString() ?? '',
+  );
+}
+
+class ExpenseDetails {
+  const ExpenseDetails({
+    required this.id,
+    required this.date,
+    required this.category,
+    required this.description,
+    required this.amount,
+    required this.paymentMethod,
+    required this.observation,
+    this.supplier,
+  });
+  final int id, category;
+  final int? supplier;
+  final String date, description, amount, paymentMethod, observation;
+  factory ExpenseDetails.fromJson(Map<String, dynamic> json) => ExpenseDetails(
+    id: (json['id'] as num).toInt(),
+    date: json['date']?.toString() ?? '',
+    category: (json['category'] as num).toInt(),
+    supplier: (json['supplier'] as num?)?.toInt(),
+    description: json['description']?.toString() ?? '',
+    amount: json['amount']?.toString() ?? '',
+    paymentMethod: json['payment_method']?.toString() ?? 'cash',
+    observation: json['observation']?.toString() ?? '',
+  );
+}
+
+class ExpenseWriteRequest {
+  const ExpenseWriteRequest({
+    required this.date,
+    required this.category,
+    required this.description,
+    required this.amount,
+    required this.paymentMethod,
+    required this.observation,
+    this.supplier,
+  });
+  final int category;
+  final int? supplier;
+  final String date, description, amount, paymentMethod, observation;
+  Map<String, dynamic> toJson() => {
+    'date': date,
+    'category': category,
+    'supplier': supplier,
+    'description': description,
+    'amount': amount,
+    'payment_method': paymentMethod,
+    'observation': observation,
+  };
+}
+
+class BusinessOption {
+  const BusinessOption({required this.id, required this.name});
+  final int id;
+  final String name;
+  factory BusinessOption.fromJson(Map<String, dynamic> json) => BusinessOption(
+    id: (json['id'] as num).toInt(),
+    name: json['name']?.toString() ?? '',
   );
 }
 
