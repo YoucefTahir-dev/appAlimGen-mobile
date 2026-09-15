@@ -52,6 +52,45 @@ Widget _app(PagedListState<ProductSummary> state) => ProviderScope(
   ),
 );
 
+const _crudUser = UserProfile(
+  id: 2,
+  username: 'manager',
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  role: 'Gestionnaire',
+  permissions: {
+    'inventory.view_product',
+    'inventory.add_product',
+    'inventory.change_product',
+    'inventory.delete_product',
+  },
+);
+
+class _CrudAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.authenticated(_crudUser);
+}
+
+Widget _crudApp(PagedListState<ProductSummary> state) => ProviderScope(
+  overrides: [
+    authControllerProvider.overrideWith(_CrudAuthController.new),
+    productsProvider.overrideWith(() => _ProductsController(state)),
+  ],
+  child: const MaterialApp(
+    locale: Locale('fr'),
+    supportedLocales: AppLocalizations.supportedLocales,
+    localizationsDelegates: [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: ProductsScreen(),
+  ),
+);
+
 void main() {
   testWidgets('le loader produits est réservé à l’état loading', (
     tester,
@@ -109,5 +148,39 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Serveur indisponible'), findsOneWidget);
     expect(find.text('Réessayer'), findsOneWidget);
+  });
+
+  testWidgets('masque le bouton créer sans permission', (tester) async {
+    await tester.pumpWidget(
+      _app(const PagedListState(isInitialLoading: false)),
+    );
+    expect(find.text('Nouveau produit'), findsNothing);
+  });
+
+  testWidgets('affiche les actions CRUD avec permissions', (tester) async {
+    await tester.pumpWidget(
+      _crudApp(
+        const PagedListState(
+          isInitialLoading: false,
+          items: [
+            ProductSummary(
+              id: 1,
+              name: 'Test',
+              reference: 'P1',
+              quantity: 1,
+              stockStatus: 'normal',
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(find.text('Nouveau produit'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'Test'),
+        matching: find.byType(PopupMenuButton<String>),
+      ),
+      findsOneWidget,
+    );
   });
 }

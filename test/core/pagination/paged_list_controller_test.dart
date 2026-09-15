@@ -24,15 +24,11 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final loaded = Completer<void>();
-    final subscription = container.listen(
-      _stringListProvider,
-      (_, next) {
-        if (next.items.isNotEmpty && !loaded.isCompleted) {
-          loaded.complete();
-        }
-      },
-      fireImmediately: true,
-    );
+    final subscription = container.listen(_stringListProvider, (_, next) {
+      if (next.items.isNotEmpty && !loaded.isCompleted) {
+        loaded.complete();
+      }
+    }, fireImmediately: true);
     addTearDown(subscription.close);
 
     await loaded.future.timeout(const Duration(seconds: 1));
