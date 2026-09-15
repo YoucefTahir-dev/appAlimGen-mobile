@@ -3,6 +3,7 @@ enum FailureKind {
   authentication,
   permission,
   notFound,
+  conflict,
   rateLimit,
   network,
   timeout,
@@ -24,6 +25,17 @@ class AppFailure implements Exception {
   final int? statusCode;
   final Object? details;
   bool get isTokenRevoked => code == 'TOKEN_REVOKED';
+  Map<String, String> get fieldErrors {
+    final value = details;
+    if (value is! Map) return const {};
+    return value.map((key, messages) {
+      final message = messages is List
+          ? messages.map((item) => item.toString()).join(' ')
+          : messages.toString();
+      return MapEntry(key.toString(), message);
+    });
+  }
+
   @override
   String toString() => 'AppFailure($code, $kind)';
 }

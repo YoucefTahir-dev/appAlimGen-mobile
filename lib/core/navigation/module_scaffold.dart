@@ -9,11 +9,13 @@ class ModuleScaffold extends StatelessWidget {
     required this.path,
     required this.body,
     this.actions = const [],
+    this.floatingActionButton,
   });
   final String title;
   final String path;
   final Widget body;
   final List<Widget> actions;
+  final Widget? floatingActionButton;
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -22,5 +24,6 @@ class ModuleScaffold extends StatelessWidget {
     ),
     drawer: AppDrawer(currentPath: path),
     body: body,
+    floatingActionButton: floatingActionButton,
   );
 }
