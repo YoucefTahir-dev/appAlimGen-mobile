@@ -9,6 +9,9 @@ import 'package:app_alim_gen_mobile/features/clients/data/clients_repository.dar
 import 'package:app_alim_gen_mobile/features/dashboard/data/dashboard_repository.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/data/loading_orders_repository.dart';
 import 'package:app_alim_gen_mobile/features/printers/data/printers_repository.dart';
+import 'package:app_alim_gen_mobile/features/printers/services/bluetooth_printer_transport.dart';
+import 'package:app_alim_gen_mobile/features/printers/services/esc_pos_printer_driver.dart';
+import 'package:app_alim_gen_mobile/features/printers/services/printer_test_service.dart';
 import 'package:app_alim_gen_mobile/features/products/data/products_repository.dart';
 import 'package:app_alim_gen_mobile/features/stock/data/stock_repository.dart';
 import 'package:flutter/widgets.dart';
@@ -119,6 +122,10 @@ final printersRepositoryProvider = Provider<PrintersRepository>(
     ref.watch(apiClientProvider).dio,
     ref.watch(errorMapperProvider),
   ),
+);
+final printerTestServiceProvider = Provider<PrinterTestService>(
+  (ref) =>
+      PrinterTestService(BluetoothPrinterTransport(), EscPosPrinterDriver()),
 );
 
 class LocaleController extends Notifier<Locale> {

@@ -8,6 +8,7 @@ import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
 import 'package:app_alim_gen_mobile/features/printers/presentation/printer_form_screen.dart';
+import 'package:app_alim_gen_mobile/features/printers/services/printer_test_service.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
@@ -127,16 +128,45 @@ class PrintersScreen extends ConsumerWidget {
         await ref.read(printersProvider.notifier).refresh();
       }
       if (action == 'test') {
-        final data = await ref
-            .read(printersRepositoryProvider)
-            .testPayload(item.id);
+        final repository = ref.read(printersRepositoryProvider);
+        final printer = await repository.get(item.id);
+        if (printer.connectionMode != 'bluetooth') {
+          throw StateError(
+            'Le test physique mobile est réservé aux imprimantes Bluetooth.',
+          );
+        }
+        final payload = await repository.testPayload(item.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Connexion à ${printer.bluetoothName.isEmpty ? printer.name : printer.bluetoothName}...',
+              ),
+            ),
+          );
+        }
+        await ref
+            .read(printerTestServiceProvider)
+            .run(
+              printer: printer,
+              serverPayload: payload,
+              onStage: (stage) {
+                if (context.mounted && stage == PrinterTestStage.connected) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Imprimante connectée. Envoi du ticket...'),
+                    ),
+                  );
+                }
+              },
+            );
         if (context.mounted) {
           showDialog<void>(
             context: context,
             builder: (c) => AlertDialog(
-              title: Text(CrudStrings.of(context).text('configReady')),
-              content: Text(
-                'Transport : ${data['transport']}\nProtocole : ${data['protocol']}\nLe test physique doit être envoyé localement par Android.',
+              title: const Text('✓ Données envoyées'),
+              content: const Text(
+                "Le ticket de test a été envoyé. Vérifiez physiquement la sortie papier : l'envoi logiciel ne confirme pas l'impression matérielle.",
               ),
               actions: [
                 TextButton(
@@ -177,7 +207,9 @@ class PrintersScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              error is AppFailure ? error.message : 'Opération impossible.',
+              error is AppFailure
+                  ? error.message
+                  : error.toString().replaceFirst('Bad state: ', ''),
             ),
           ),
         );

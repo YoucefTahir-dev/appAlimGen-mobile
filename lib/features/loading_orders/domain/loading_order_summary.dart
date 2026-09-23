@@ -6,6 +6,8 @@ class LoadingOrderSummary {
     required this.status,
     required this.createdAt,
     required this.lines,
+    this.operatorId,
+    this.notes = '',
   });
   final int id;
   final String number;
@@ -13,6 +15,8 @@ class LoadingOrderSummary {
   final String status;
   final String createdAt;
   final List<LoadingLineSummary> lines;
+  final int? operatorId;
+  final String notes;
   factory LoadingOrderSummary.fromJson(Map<String, dynamic> json) =>
       LoadingOrderSummary(
         id: (json['id'] as num).toInt(),
@@ -20,6 +24,8 @@ class LoadingOrderSummary {
         operatorName: json['operator_name']?.toString() ?? '',
         status: json['status']?.toString() ?? '',
         createdAt: json['created_at']?.toString() ?? '',
+        operatorId: (json['operator'] as num?)?.toInt(),
+        notes: json['notes']?.toString() ?? '',
         lines: ((json['lines'] as List?) ?? const [])
             .map(
               (item) => LoadingLineSummary.fromJson(
@@ -28,6 +34,28 @@ class LoadingOrderSummary {
             )
             .toList(growable: false),
       );
+}
+
+class LoadingOrderWriteRequest {
+  const LoadingOrderWriteRequest({
+    required this.operatorId,
+    required this.notes,
+    required this.lines,
+  });
+  final int operatorId;
+  final String notes;
+  final List<LoadingOrderLineWrite> lines;
+  Map<String, dynamic> toJson() => {
+    'operator': operatorId,
+    'notes': notes,
+    'lines': lines.map((e) => e.toJson()).toList(),
+  };
+}
+
+class LoadingOrderLineWrite {
+  const LoadingOrderLineWrite(this.productId, this.quantity);
+  final int productId, quantity;
+  Map<String, dynamic> toJson() => {'product': productId, 'quantity': quantity};
 }
 
 class LoadingLineSummary {

@@ -255,3 +255,95 @@ class PaymentSummary {
     date: json['created_at']?.toString() ?? '',
   );
 }
+
+class TransactionOption {
+  const TransactionOption({
+    required this.id,
+    required this.label,
+    this.meta = const {},
+  });
+  final int id;
+  final String label;
+  final Map<String, dynamic> meta;
+}
+
+class TransactionLineRequest {
+  const TransactionLineRequest({
+    required this.productId,
+    required this.quantity,
+    required this.unitPrice,
+    this.packagingId,
+  });
+  final int productId, quantity;
+  final int? packagingId;
+  final String unitPrice;
+  Map<String, dynamic> saleJson() => {
+    'product_id': productId,
+    'quantity': quantity,
+    'unit_price': unitPrice,
+    if (packagingId != null) 'packaging_id': packagingId,
+  };
+  Map<String, dynamic> purchaseJson() => {
+    'product': productId,
+    'quantity': quantity,
+    'purchase_price': unitPrice,
+  };
+}
+
+class SaleWriteRequest {
+  const SaleWriteRequest({
+    required this.clientId,
+    required this.discount,
+    required this.taxRate,
+    required this.paymentType,
+    required this.payFull,
+    required this.items,
+  });
+  final int clientId;
+  final String discount, taxRate, paymentType;
+  final bool payFull;
+  final List<TransactionLineRequest> items;
+  Map<String, dynamic> toJson() => {
+    'client': clientId,
+    'discount': discount,
+    'tax_rate': taxRate,
+    'payment_type': paymentType,
+    'pay_full': payFull,
+    'items': items.map((line) => line.saleJson()).toList(),
+  };
+}
+
+class PurchaseWriteRequest {
+  const PurchaseWriteRequest({
+    required this.supplierId,
+    required this.reference,
+    required this.taxRate,
+    required this.items,
+  });
+  final int supplierId;
+  final String reference, taxRate;
+  final List<TransactionLineRequest> items;
+  Map<String, dynamic> toJson() => {
+    'supplier': supplierId,
+    'reference': reference,
+    'tax_rate': taxRate,
+    'items': items.map((line) => line.purchaseJson()).toList(),
+  };
+}
+
+class PaymentWriteRequest {
+  const PaymentWriteRequest({
+    this.saleId,
+    this.purchaseId,
+    required this.amount,
+    required this.paymentType,
+  });
+  final int? saleId, purchaseId;
+  final String amount, paymentType;
+  Map<String, dynamic> toJson() => {
+    if (saleId != null) 'sale': saleId,
+    if (purchaseId != null) 'purchase': purchaseId,
+    'amount': amount,
+    'payment_type': paymentType,
+  };
+}

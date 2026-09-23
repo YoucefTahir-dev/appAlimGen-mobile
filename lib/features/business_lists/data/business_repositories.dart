@@ -26,6 +26,36 @@ abstract class _BusinessRepository<T> {
 class InvoicesRepository extends _BusinessRepository<InvoiceSummary> {
   const InvoicesRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'invoices/', InvoiceSummary.fromJson);
+
+  Future<Map<String, dynamic>> get(int id) async =>
+      CrudRepository(dio, errors).getObject('invoices/$id/');
+  Future<Map<String, dynamic>> printData(
+    int id, {
+    int width = 80,
+    String language = 'bilingual',
+  }) async {
+    try {
+      final response = await dio.get<dynamic>(
+        'invoices/$id/print-data/',
+        queryParameters: {'paper_width': width, 'language': language},
+      );
+      return Map<String, dynamic>.from(ApiEnvelope.data(response.data) as Map);
+    } catch (error) {
+      throw errors.map(error);
+    }
+  }
+
+  Future<List<int>> pdf(int id) async {
+    try {
+      final response = await dio.get<List<int>>(
+        'invoices/$id/pdf/',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data ?? const [];
+    } catch (error) {
+      throw errors.map(error);
+    }
+  }
 }
 
 class SuppliersRepository extends _BusinessRepository<SupplierSummary> {
@@ -49,11 +79,134 @@ class SuppliersRepository extends _BusinessRepository<SupplierSummary> {
 class SalesRepository extends _BusinessRepository<SaleSummary> {
   const SalesRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'sales/', SaleSummary.fromJson);
+
+  Future<SaleSummary> create(
+    SaleWriteRequest request,
+    String idempotencyKey,
+  ) async => SaleSummary.fromJson(
+    await _postObject('sales/', request.toJson(), idempotencyKey),
+  );
+  Future<void> delete(int id) async {
+    try {
+      await dio.delete<dynamic>('sales/$id/');
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+
+  Future<List<TransactionOption>> searchClients(String query) =>
+      _searchOptions('clients/', query, (j) => j['name']?.toString() ?? '');
+  Future<List<TransactionOption>> searchProducts(String query) =>
+      _searchProducts(dio, errors, query);
+  Future<Map<String, dynamic>> price(
+    int productId,
+    int clientId, {
+    int? packagingId,
+  }) async {
+    try {
+      final response = await dio.get<dynamic>(
+        'products/$productId/price/',
+        queryParameters: {'client_id': clientId, 'packaging_id': ?packagingId},
+      );
+      return Map<String, dynamic>.from(ApiEnvelope.data(response.data) as Map);
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _postObject(
+    String path,
+    Map<String, dynamic> data,
+    String key,
+  ) async {
+    try {
+      final r = await dio.post<dynamic>(
+        path,
+        data: data,
+        options: Options(headers: {'Idempotency-Key': key}),
+      );
+      return ApiEnvelope.object(r.data);
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+
+  Future<List<TransactionOption>> _searchOptions(
+    String path,
+    String query,
+    String Function(Map<String, dynamic>) label,
+  ) async {
+    try {
+      final r = await dio.get<dynamic>(
+        path,
+        queryParameters: {'search': query, 'page_size': 20},
+      );
+      final d = ApiEnvelope.data(r.data);
+      final raw = d is Map ? d['results'] : d;
+      return (raw as List).map((e) {
+        final j = Map<String, dynamic>.from(e as Map);
+        return TransactionOption(
+          id: (j['id'] as num).toInt(),
+          label: label(j),
+          meta: j,
+        );
+      }).toList();
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
 }
 
 class PurchasesRepository extends _BusinessRepository<PurchaseSummary> {
   const PurchasesRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'purchases/', PurchaseSummary.fromJson);
+  Future<PurchaseSummary> create(
+    PurchaseWriteRequest request,
+    String key,
+  ) async {
+    try {
+      final r = await dio.post<dynamic>(
+        'purchases/',
+        data: request.toJson(),
+        options: Options(headers: {'Idempotency-Key': key}),
+      );
+      return PurchaseSummary.fromJson(ApiEnvelope.object(r.data));
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+
+  Future<void> delete(int id) async {
+    try {
+      await dio.delete<dynamic>('purchases/$id/');
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+
+  Future<List<TransactionOption>> searchSuppliers(String query) async {
+    try {
+      final r = await dio.get<dynamic>(
+        'suppliers/',
+        queryParameters: {'search': query, 'page_size': 20},
+      );
+      final d = ApiEnvelope.data(r.data);
+      final raw = d is Map ? d['results'] : d;
+      return (raw as List).map((e) {
+        final j = Map<String, dynamic>.from(e as Map);
+        return TransactionOption(
+          id: (j['id'] as num).toInt(),
+          label: j['name']?.toString() ?? '',
+          meta: j,
+        );
+      }).toList();
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+
+  Future<List<TransactionOption>> searchProducts(String query) =>
+      _searchProducts(dio, errors, query);
 }
 
 class ExpensesRepository extends _BusinessRepository<ExpenseSummary> {
@@ -96,4 +249,41 @@ class ExpensesRepository extends _BusinessRepository<ExpenseSummary> {
 class PaymentsRepository extends _BusinessRepository<PaymentSummary> {
   const PaymentsRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'payments/', PaymentSummary.fromJson);
+  Future<PaymentSummary> create(PaymentWriteRequest request, String key) async {
+    try {
+      final r = await dio.post<dynamic>(
+        'payments/',
+        data: request.toJson(),
+        options: Options(headers: {'Idempotency-Key': key}),
+      );
+      return PaymentSummary.fromJson(ApiEnvelope.object(r.data));
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
+}
+
+Future<List<TransactionOption>> _searchProducts(
+  Dio dio,
+  ErrorMapper errors,
+  String query,
+) async {
+  try {
+    final response = await dio.get<dynamic>(
+      'products/search/',
+      queryParameters: {'q': query, 'context': 'loading_order'},
+    );
+    final data = ApiEnvelope.data(response.data);
+    final raw = data is Map ? data['results'] : data;
+    return (raw as List).map((e) {
+      final j = Map<String, dynamic>.from(e as Map);
+      return TransactionOption(
+        id: (j['id'] as num).toInt(),
+        label: j['name']?.toString() ?? '',
+        meta: j,
+      );
+    }).toList();
+  } catch (e) {
+    throw errors.map(e);
+  }
 }

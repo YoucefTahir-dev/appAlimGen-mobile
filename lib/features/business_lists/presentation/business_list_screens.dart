@@ -8,6 +8,8 @@ import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/supplier_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/expense_form_screen.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/transaction_form_screens.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
@@ -95,6 +97,7 @@ Widget _recordCard(
   required String title,
   required List<String> details,
   required String amount,
+  VoidCallback? onTap,
 }) => Card(
   child: ListTile(
     leading: Icon(icon),
@@ -102,13 +105,14 @@ Widget _recordCard(
     subtitle: Text(details.where((value) => value.isNotEmpty).join('\n')),
     trailing: Text(amount, style: Theme.of(context).textTheme.titleMedium),
     isThreeLine: details.length > 1,
+    onTap: onTap,
   ),
 );
 
-class InvoicesScreen extends StatelessWidget {
+class InvoicesScreen extends ConsumerWidget {
   const InvoicesScreen({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
     return ModuleScaffold(
       title: s.text('invoices'),
@@ -126,6 +130,12 @@ class InvoicesScreen extends StatelessWidget {
             '${s.text('status')}: ${item.paymentStatus}',
           ],
           amount: '${item.total} DZD',
+          onTap: () => Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => InvoiceDetailScreen(invoiceId: item.id),
+            ),
+          ),
         ),
       ),
     );
@@ -255,55 +265,173 @@ class SuppliersScreen extends ConsumerWidget {
   }
 }
 
-class SalesScreen extends StatelessWidget {
+class SalesScreen extends ConsumerWidget {
   const SalesScreen({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final canAdd = user?.can(AppPermissions.addSale) ?? false;
+    final canDelete = user?.can(AppPermissions.deleteSale) ?? false;
     return ModuleScaffold(
       title: s.sales,
       path: '/sales',
       body: PagedListBody<SaleSummary, SalesController>(
         provider: salesProvider,
-        itemBuilder: (context, item) => _recordCard(
-          context,
-          icon: Icons.point_of_sale_outlined,
-          title: item.number,
-          details: [
-            '${s.text('client')}: #${item.clientId ?? '—'}',
-            '${s.text('date')}: ${_date(item.date)}',
-            '${s.text('status')}: ${item.paymentStatus}',
-          ],
-          amount: '${item.total} DZD',
+        itemBuilder: (context, item) => Card(
+          child: ListTile(
+            leading: const Icon(Icons.point_of_sale_outlined),
+            title: Text(item.number),
+            subtitle: Text(
+              '${s.text('client')}: #${item.clientId ?? '—'}\n${s.text('date')}: ${_date(item.date)}\n${s.text('status')}: ${item.paymentStatus}',
+            ),
+            isThreeLine: true,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${item.total} DZD'),
+                if (canDelete)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _deleteSale(context, ref, item.id),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
+      floatingActionButton: canAdd
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final changed = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SaleFormScreen()),
+                );
+                if (changed == true) ref.read(salesProvider.notifier).refresh();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Nouvelle vente'),
+            )
+          : null,
     );
+  }
+
+  Future<void> _deleteSale(BuildContext context, WidgetRef ref, int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Confirmer la suppression ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(salesRepositoryProvider).delete(id);
+      await ref.read(salesProvider.notifier).refresh();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e is AppFailure ? e.message : e.toString())),
+        );
+      }
+    }
   }
 }
 
-class PurchasesScreen extends StatelessWidget {
+class PurchasesScreen extends ConsumerWidget {
   const PurchasesScreen({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final canAdd = user?.can(AppPermissions.addPurchase) ?? false;
+    final canDelete = user?.can(AppPermissions.deletePurchase) ?? false;
     return ModuleScaffold(
       title: s.text('purchases'),
       path: '/purchases',
       body: PagedListBody<PurchaseSummary, PurchasesController>(
         provider: purchasesProvider,
-        itemBuilder: (context, item) => _recordCard(
-          context,
-          icon: Icons.shopping_cart_checkout_outlined,
-          title: item.reference,
-          details: [
-            '${s.text('supplier')}: #${item.supplierId ?? '—'}',
-            '${s.text('date')}: ${_date(item.date)}',
-            '${s.text('status')}: ${item.paymentStatus}',
-          ],
-          amount: '${item.total} DZD',
+        itemBuilder: (context, item) => Card(
+          child: ListTile(
+            leading: const Icon(Icons.shopping_cart_checkout_outlined),
+            title: Text(item.reference),
+            subtitle: Text(
+              '${s.text('supplier')}: #${item.supplierId ?? '—'}\n${s.text('date')}: ${_date(item.date)}\n${s.text('status')}: ${item.paymentStatus}',
+            ),
+            isThreeLine: true,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${item.total} DZD'),
+                if (canDelete)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _deletePurchase(context, ref, item.id),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
+      floatingActionButton: canAdd
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final changed = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PurchaseFormScreen()),
+                );
+                if (changed == true) {
+                  ref.read(purchasesProvider.notifier).refresh();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Nouvel achat'),
+            )
+          : null,
     );
+  }
+
+  Future<void> _deletePurchase(
+    BuildContext context,
+    WidgetRef ref,
+    int id,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Confirmer la suppression ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(purchasesRepositoryProvider).delete(id);
+      await ref.read(purchasesProvider.notifier).refresh();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e is AppFailure ? e.message : e.toString())),
+        );
+      }
+    }
   }
 }
 
@@ -431,11 +559,15 @@ class ExpensesScreen extends ConsumerWidget {
   }
 }
 
-class PaymentsScreen extends StatelessWidget {
+class PaymentsScreen extends ConsumerWidget {
   const PaymentsScreen({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final canCreate =
+        (user?.can(AppPermissions.changeSale) ?? false) ||
+        (user?.can(AppPermissions.changePurchase) ?? false);
     return ModuleScaffold(
       title: s.text('payments'),
       path: '/payments',
@@ -449,6 +581,21 @@ class PaymentsScreen extends StatelessWidget {
           amount: '${item.amount} DZD',
         ),
       ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final changed = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PaymentFormScreen()),
+                );
+                if (changed == true) {
+                  ref.read(paymentsProvider.notifier).refresh();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Nouveau paiement'),
+            )
+          : null,
     );
   }
 }

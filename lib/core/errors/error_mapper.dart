@@ -37,7 +37,7 @@ class ErrorMapper {
     final apiError = body is Map ? body['error'] : null;
     return AppFailure(
       kind: switch (status) {
-        400 => FailureKind.validation,
+        400 || 422 => FailureKind.validation,
         401 => FailureKind.authentication,
         403 => FailureKind.permission,
         404 => FailureKind.notFound,
@@ -59,6 +59,7 @@ class ErrorMapper {
 
   String _defaultCode(int? status) => switch (status) {
     400 => 'VALIDATION_ERROR',
+    422 => 'VALIDATION_ERROR',
     401 => 'AUTHENTICATION_REQUIRED',
     403 => 'PERMISSION_DENIED',
     404 => 'NOT_FOUND',

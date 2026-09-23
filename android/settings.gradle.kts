@@ -17,6 +17,15 @@ pluginManagement {
     }
 }
 
+// geolocator_android 4.x still declares AGP 8.0.2 in its legacy buildscript.
+// Align that classpath with the compatible version already used by our current
+// Gradle toolchain; this avoids downloading an obsolete second AGP.
+gradle.beforeProject {
+    buildscript.configurations.configureEach {
+        resolutionStrategy.force("com.android.tools.build:gradle:8.13.1")
+    }
+}
+
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.0.1" apply false
