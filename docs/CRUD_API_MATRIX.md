@@ -1,25 +1,49 @@
-# Matrice CRUD mobile vérifiée
+# Audit CRUD Flutter / API
 
-Source auditée : `ANDROID_API_GUIDE.md`, `openapi.yaml`, `apps/api/views.py` et `apps/api/serializers.py` du backend Django au 14 septembre 2026.
+Audit basé sur les ViewSets, serializers et permissions Django, puis sur le parcours Flutter complet (écran, provider, repository, API et rafraîchissement).
 
-| Module | Lire | Créer | Modifier | Supprimer | Actions métier | Permissions Django | Endpoints |
-|---|---|---|---|---|---|---|---|
-| Produits | Oui | Oui | Oui, PATCH | Oui si aucune relation protégée | prix par client, recherche, code-barres, QR | `inventory.view_product`, `add_product`, `change_product`, `delete_product`; coûts: `view_product_pricing` | `products/`, `products/{id}/`, `products/{id}/price/`, `products/search/` |
-| Clients | Oui | Oui | Oui, PATCH | Oui si le backend l'accepte | historique | `inventory.view_client`, `add_client`, `change_client`, `delete_client` | `clients/`, `clients/{id}/`, `clients/{id}/history/` |
-| Fournisseurs | Oui | Oui | Oui, PATCH | Oui si le backend l'accepte | historique | `inventory.view_supplier`, `add_supplier`, `change_supplier`, `delete_supplier` | `suppliers/`, `suppliers/{id}/`, `suppliers/{id}/history/` |
-| Charges | Oui | Oui | Oui, PATCH | Oui si le backend l'accepte | catégories séparées | `expenses.view_expense`, `add_expense`, `change_expense`, `delete_expense` | `expenses/`, `expenses/{id}/`, `expense-categories/` |
-| Imprimantes | Oui | Oui | Oui, PATCH | Oui si le backend l'accepte | définir par défaut, générer payload test | `printing.view_printerprofile`, `add_printerprofile`, `change_printerprofile`, `delete_printerprofile`, `test_printerprofile` | `printers/`, `printers/{id}/`, `printers/{id}/set-default/`, `printers/{id}/test-payload/` |
-| Ventes | Oui | Oui | Non | DELETE disponible, soumis aux règles serveur | création transactionnelle idempotente | `commerce.view_sale`, `add_sale`, `delete_sale` | `sales/`, `sales/{id}/` |
-| Achats | Oui | Oui | Non | DELETE disponible, soumis aux règles serveur | création transactionnelle idempotente | `commerce.view_purchase`, `add_purchase`, `delete_purchase` | `purchases/`, `purchases/{id}/` |
-| Paiements | Oui | Oui | Non | Non | création idempotente | permissions commerce réelles du ViewSet | `payments/`, `payments/{id}/` |
-| Factures | Oui | Non | Non | Non | PDF, ticket, données d'impression | `accounts.view_invoices`, permissions d'impression | `invoices/`, `invoices/{id}/pdf/`, `ticket/`, `print-data/` |
-| Stock | Oui | Non | Non | Non | mouvements/alertes en lecture; mutations via services métier | `accounts.view_stock` | `stock/`, `stock/movements/`, `stock/alerts/` |
-| Bons de chargement | Oui | Oui | Brouillon seulement | Brouillon seulement selon serveur | `validate`, `close`, `cancel` | permissions `inventory.*loadingorder` | `loading-orders/` et actions dédiées |
+| Module | Lire | Créer | Modifier | Supprimer | Actions métier | Flutter après travaux | API disponible |
+|---|---:|---:|---:|---:|---|---|---|
+| Produits | Oui | Oui | Oui | Oui si accepté | prix client, recherche, code-barres, QR | CRUD avec permissions et refresh | CRUD complet |
+| Clients | Oui | Oui | Oui | Oui si accepté | GPS conservé | CRUD avec permissions et refresh | CRUD complet |
+| Fournisseurs | Oui | Oui | Oui | Oui si accepté | — | CRUD avec permissions et refresh | CRUD complet |
+| Ventes | Oui | Oui | Non | Oui, règle serveur | prix serveur, stock opérateur, idempotence | création multi-lignes + suppression autorisée | create/list/retrieve/destroy |
+| Achats | Oui | Oui | Non | Oui, règle serveur | idempotence, création produit imbriquée | création multi-lignes + suppression autorisée | create/list/retrieve/destroy |
+| Factures | Oui | Non | Non | Non | PDF, ticket, données d'impression | liste, détail, PDF, impression Bluetooth | lecture + actions dédiées |
+| Paiements | Oui | Oui | Non | Non | idempotence | création selon permissions commerce | create/list/retrieve |
+| Stock global | Oui | Non | Non | Non | mouvements et alertes | lecture seule volontaire | lecture seule |
+| Mon stock | Oui | Non | Non | Non | chargé/vendu/restant | lecture seule volontaire | lecture seule et cloisonnée |
+| Bons de chargement | Oui | Oui | Brouillon | Brouillon via annulation | valider, annuler, clôturer | workflow et recherche produits | CRUD + actions dédiées |
+| Charges | Oui | Oui | Oui | Oui si accepté | catégories | CRUD avec permissions et refresh | CRUD complet |
+| Imprimantes | Oui | Oui | Oui | Oui si accepté | défaut, payload test, test physique local | CRUD, défaut et transport Bluetooth | CRUD + actions dédiées |
 
-## Décisions de sécurité
+## Règles appliquées
 
-- Les boutons sont pilotés uniquement par les permissions de `GET auth/me/`; aucune détection de rôle n'est dispersée dans les écrans.
-- Le serveur revalide toujours permissions, données, prix, stock et suppressions protégées.
-- Les formulaires utilisent `PATCH` pour les modifications et n'écrivent jamais directement dans un journal de stock.
-- Les mutations sont en ligne uniquement. Aucun stockage local silencieux n'est réalisé.
-- Le test imprimante mobile vérifie le payload serveur ; le transport Bluetooth physique reste local à Android.
+- Les boutons utilisent les permissions de `GET /auth/me/`, jamais un simple test de rôle.
+- Toute règle sensible reste revalidée par Django : prix, stock opérateur, état du bon et suppressions.
+- Les mutations critiques gardent une même `Idempotency-Key` pendant toute la durée du formulaire et ses retries.
+- Les boutons d'enregistrement sont désactivés pendant l'envoi et les listes sont rafraîchies après succès.
+- Aucun `PATCH` direct du stock n'est exposé.
+- L'API ne fournit actuellement aucun endpoint de recherche des utilisateurs/opérateurs. Le formulaire de bon utilise donc l'identifiant opérateur ; une sélection par nom nécessite d'abord un endpoint backend autorisé.
+
+## Architecture d'impression
+
+`Django (configuration/données) -> Flutter Android -> Bluetooth Classic RFCOMM -> RPP02N`
+
+Le serveur Render n'ouvre jamais le Bluetooth. Le code sépare `PrinterTransport`, `BluetoothPrinterTransport`, `PrinterDriver` et `EscPosPrinterDriver`. Un statut « données envoyées » ne vaut pas confirmation de sortie papier.
+
+## Recette physique RPP02N obligatoire
+
+1. Allumer la RPP02N et charger du papier 80 mm.
+2. Activer le Bluetooth Android et appairer `RPP02N` dans les réglages du téléphone.
+3. Dans Imprimantes, vérifier le nom/adresse Bluetooth, activer le profil et le définir par défaut.
+4. Appuyer sur « Tester l'impression » et accepter `BLUETOOTH_CONNECT`/`BLUETOOTH_SCAN` si Android les demande.
+5. Vérifier connexion, texte ASCII, alignements et largeur du ticket papier.
+6. Ouvrir une facture puis appuyer sur « Imprimer » ; un échec d'impression ne doit jamais annuler la vente.
+7. L'arabe rasterisé et le QR nécessitent une phase suivante et une validation matérielle : le driver actuel évite volontairement d'envoyer de l'arabe natif cassé.
+
+## Réserves connues
+
+- Sélection conviviale d'opérateur : endpoint backend absent.
+- Arabe rasterisé et QR ESC/POS : non déclarés prêts avant essai matériel et ajout du driver image.
+- La validation physique RPP02N ne peut être conclue par les tests automatiques.
