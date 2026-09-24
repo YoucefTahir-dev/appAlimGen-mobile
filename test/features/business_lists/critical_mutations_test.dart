@@ -53,6 +53,42 @@ void main() {
       expect(request.headers['Idempotency-Key'], key);
     }
   });
+
+  test('modification vente conserve sa clé et toutes les lignes', () async {
+    final adapter = _CapturingAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'))
+      ..httpClientAdapter = adapter;
+    const key = 'stable-sale-update';
+
+    await SalesRepository(dio, const ErrorMapper()).update(
+      8,
+      const SaleWriteRequest(
+        clientId: 2,
+        discount: '5.00',
+        taxRate: '19.00',
+        paymentType: 'cheque',
+        payFull: false,
+        items: [
+          TransactionLineRequest(
+            productId: 4,
+            packagingId: 6,
+            quantity: 2,
+            unitPrice: '120.00',
+          ),
+          TransactionLineRequest(productId: 5, quantity: 1, unitPrice: '80.00'),
+        ],
+      ),
+      key,
+    );
+
+    final request = adapter.requests.single;
+    expect(request.method, 'PATCH');
+    expect(request.path, endsWith('sales/8/'));
+    expect(request.headers['Idempotency-Key'], key);
+    final body = Map<String, dynamic>.from(request.data as Map);
+    expect(body['items'], hasLength(2));
+    expect((body['items'] as List).first['packaging_id'], 6);
+  });
 }
 
 class _CapturingAdapter implements HttpClientAdapter {
@@ -72,6 +108,16 @@ class _CapturingAdapter implements HttpClientAdapter {
       'payment_status': 'paid',
     };
     final data = switch (options.path) {
+      final path when path.endsWith('/sales/8/') => {
+        ...common,
+        'invoice_number': 'FAC-8',
+        'ticket_number': 'TCK-8',
+        'client': 2,
+        'client_details': {'id': 2, 'name': 'Client'},
+        'lines': const [],
+        'payments': const [],
+        'capabilities': const {},
+      },
       final path when path.endsWith('/sales/') => {
         ...common,
         'invoice_number': 'FAC-1',

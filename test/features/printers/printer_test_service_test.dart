@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
 import 'package:app_alim_gen_mobile/features/printers/services/printer_test_service.dart';
 import 'package:app_alim_gen_mobile/features/printers/services/printer_transport.dart';
+import 'package:app_alim_gen_mobile/features/printers/services/esc_pos_printer_driver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -104,6 +105,18 @@ void main() {
     expect(transport.disconnected, isTrue);
   });
 
+  test('reports a connection failure and still disconnects', () async {
+    final transport = _FakeTransport(
+      connectError: StateError('connection failed'),
+    );
+    await expectLater(
+      PrinterTestService(transport, _FakeDriver()).run(printer: printer),
+      throwsA(isA<StateError>()),
+    );
+    expect(transport.written, isNull);
+    expect(transport.disconnected, isTrue);
+  });
+
   test('forwards permission errors without attempting connection', () async {
     final transport = _FakeTransport(
       permissionError: StateError('permission refused'),
@@ -114,6 +127,40 @@ void main() {
     );
     expect(transport.connectedAddress, isNull);
   });
+
+  test('invoice ticket uses backend paid and balance values', () {
+    final bytes = EscPosPrinterDriver().invoiceTicket(
+      data: const {
+        'invoice_number': 'FAC-1',
+        'issued_at': '2026-09-24T09:00:00Z',
+        'company': {'name_fr': 'EL AMINE'},
+        'customer': {'name': 'Client'},
+        'items': [
+          {
+            'name': 'Produit',
+            'quantity': 1,
+            'unit_price': '100',
+            'total': '100',
+          },
+        ],
+        'totals': {
+          'total_ht': '100.00',
+          'discount': '0.00',
+          'tax_amount': '0.00',
+          'total_ttc': '100.00',
+          'amount_paid': '40.00',
+          'balance_due': '60.00',
+          'payment_method': 'Especes',
+        },
+      },
+      paperWidth: 80,
+    );
+    final text = String.fromCharCodes(bytes);
+    expect(text, contains('Paye'));
+    expect(text, contains('40.00'));
+    expect(text, contains('Reste'));
+    expect(text, contains('60.00'));
+  });
 }
 
 class _FakeTransport implements PrinterTransport {
@@ -123,12 +170,13 @@ class _FakeTransport implements PrinterTransport {
       PrinterDevice(name: 'RPP02N', address: 'AA:BB:CC:DD:EE:FF'),
     ],
     this.permissionError,
+    this.connectError,
     this.writeError,
   });
 
   final bool enabled;
   final List<PrinterDevice> devices;
-  final Object? permissionError, writeError;
+  final Object? permissionError, connectError, writeError;
   String? connectedAddress;
   Uint8List? written;
   bool disconnected = false;
@@ -145,7 +193,10 @@ class _FakeTransport implements PrinterTransport {
   Future<List<PrinterDevice>> pairedDevices() async => devices;
 
   @override
-  Future<void> connect(String address) async => connectedAddress = address;
+  Future<void> connect(String address) async {
+    if (connectError != null) throw connectError!;
+    connectedAddress = address;
+  }
 
   @override
   Future<void> write(Uint8List bytes) async {

@@ -10,6 +10,7 @@ import 'package:app_alim_gen_mobile/features/business_lists/presentation/supplie
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/expense_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/transaction_form_screens.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_detail_screen.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/sale_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
@@ -280,21 +281,50 @@ class SalesScreen extends ConsumerWidget {
         provider: salesProvider,
         itemBuilder: (context, item) => Card(
           child: ListTile(
+            onTap: () async {
+              final changed = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SaleDetailScreen(saleId: item.id),
+                ),
+              );
+              if (changed == true) ref.read(salesProvider.notifier).refresh();
+            },
             leading: const Icon(Icons.point_of_sale_outlined),
             title: Text(item.number),
             subtitle: Text(
-              '${s.text('client')}: #${item.clientId ?? '—'}\n${s.text('date')}: ${_date(item.date)}\n${s.text('status')}: ${item.paymentStatus}',
+              '${s.text('client')}: ${item.clientName.isEmpty ? '#${item.clientId ?? '—'}' : item.clientName}\n${s.text('date')}: ${_date(item.date)}\n${s.text('status')}: ${item.paymentStatus}',
             ),
             isThreeLine: true,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('${item.total} DZD'),
-                if (canDelete)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _deleteSale(context, ref, item.id),
-                  ),
+                PopupMenuButton<String>(
+                  onSelected: (action) async {
+                    if (action == 'view') {
+                      final changed = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SaleDetailScreen(saleId: item.id),
+                        ),
+                      );
+                      if (changed == true) {
+                        ref.read(salesProvider.notifier).refresh();
+                      }
+                    } else if (action == 'delete') {
+                      await _deleteSale(context, ref, item.id);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'view', child: Text('Voir')),
+                    if (canDelete)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Supprimer'),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),

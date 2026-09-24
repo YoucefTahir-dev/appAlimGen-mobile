@@ -86,6 +86,8 @@ class EscPosPrinterDriver implements PrinterDriver {
       fit(company['name_fr']?.toString() ?? 'EL AMINE'),
       '=' * columns,
       'FACTURE ${data['invoice_number'] ?? data['ticket_number'] ?? ''}',
+      if ((data['issued_at']?.toString() ?? '').isNotEmpty)
+        fit('Date: ${data['issued_at']}'),
       if (customer.isNotEmpty) fit('Client: ${customer['name'] ?? ''}'),
       '-' * columns,
       for (final item in items) ...[
@@ -100,6 +102,8 @@ class EscPosPrinterDriver implements PrinterDriver {
       pair('Remise', totals['discount']?.toString() ?? ''),
       pair('TVA', totals['tax_amount']?.toString() ?? ''),
       pair('TOTAL TTC', totals['total_ttc']?.toString() ?? ''),
+      pair('Paye', totals['amount_paid']?.toString() ?? '0.00'),
+      pair('Reste', totals['balance_due']?.toString() ?? '0.00'),
       if ((totals['payment_method']?.toString() ?? '').isNotEmpty)
         fit('Paiement: ${totals['payment_method']}'),
       '=' * columns,

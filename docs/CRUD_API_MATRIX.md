@@ -7,10 +7,10 @@ Audit basé sur les ViewSets, serializers et permissions Django, puis sur le par
 | Produits | Oui | Oui | Oui | Oui si accepté | prix client, recherche, code-barres, QR | CRUD avec permissions et refresh | CRUD complet |
 | Clients | Oui | Oui | Oui | Oui si accepté | GPS conservé | CRUD avec permissions et refresh | CRUD complet |
 | Fournisseurs | Oui | Oui | Oui | Oui si accepté | — | CRUD avec permissions et refresh | CRUD complet |
-| Ventes | Oui | Oui | Non | Oui, règle serveur | prix serveur, stock opérateur, idempotence | création multi-lignes + suppression autorisée | create/list/retrieve/destroy |
+| Ventes | Oui | Oui | Oui | Oui, règle serveur | prix serveur, stock opérateur, idempotence | liste ouvrable, détail, création/modification multi-lignes, paiements et suppression autorisée | create/list/retrieve/update/destroy |
 | Achats | Oui | Oui | Non | Oui, règle serveur | idempotence, création produit imbriquée | création multi-lignes + suppression autorisée | create/list/retrieve/destroy |
-| Factures | Oui | Non | Non | Non | PDF, ticket, données d'impression | liste, détail, PDF, impression Bluetooth | lecture + actions dédiées |
-| Paiements | Oui | Oui | Non | Non | idempotence | création selon permissions commerce | create/list/retrieve |
+| Factures | Oui | Non | Via vente | Non | PDF, ticket, données d'impression | détail financier, PDF authentifié, impression/réimpression Bluetooth | lecture + actions dédiées |
+| Paiements | Oui | Oui | Non | Non | idempotence | création depuis la vente et historique intégré | create/list/retrieve |
 | Stock global | Oui | Non | Non | Non | mouvements et alertes | lecture seule volontaire | lecture seule |
 | Mon stock | Oui | Non | Non | Non | chargé/vendu/restant | lecture seule volontaire | lecture seule et cloisonnée |
 | Bons de chargement | Oui | Oui | Brouillon | Brouillon via annulation | valider, annuler, clôturer | workflow et recherche produits | CRUD + actions dédiées |
@@ -24,7 +24,22 @@ Audit basé sur les ViewSets, serializers et permissions Django, puis sur le par
 - Les mutations critiques gardent une même `Idempotency-Key` pendant toute la durée du formulaire et ses retries.
 - Les boutons d'enregistrement sont désactivés pendant l'envoi et les listes sont rafraîchies après succès.
 - Aucun `PATCH` direct du stock n'est exposé.
+- La modification d'une vente remplace ses lignes dans une transaction Django : restauration des anciennes quantités, validation du stock opérateur, application des nouvelles lignes et recalcul serveur des montants.
 - L'API ne fournit actuellement aucun endpoint de recherche des utilisateurs/opérateurs. Le formulaire de bon utilise donc l'identifiant opérateur ; une sélection par nom nécessite d'abord un endpoint backend autorisé.
+
+## Matrice Ventes / Factures
+
+| Action | Web | API | Flutter | Permission | Résultat |
+|---|---:|---:|---:|---|---|
+| Voir vente | liste | retrieve | détail dédié | `commerce.view_sale` | prêt |
+| Modifier vente | oui | PUT/PATCH | formulaire prérempli | `commerce.change_sale` | prêt, stock transactionnel Django |
+| Voir facture | aperçu | retrieve invoice | détail facture | `accounts.view_invoices` | prêt |
+| PDF facture | oui | `invoices/{id}/pdf/` | ouverture locale authentifiée | `accounts.download_invoice_pdf` | prêt |
+| Imprimer / réimprimer | oui | `print-data` | Bluetooth local | `accounts.print_invoice` | logiciel prêt, test physique requis |
+| Créer paiement | oui | POST payments | formulaire prérempli | `commerce.change_sale` | prêt, idempotent |
+| Voir paiements | oui | inclus + filtre payments | historique dans les détails | `commerce.view_sale` | prêt |
+| Annuler vente | non | non | non affiché | — | N/A |
+| Supprimer vente | oui | DELETE protégé | action explicitement nommée Supprimer | `commerce.delete_sale` | prêt, jamais présentée comme annulation |
 
 ## Architecture d'impression
 

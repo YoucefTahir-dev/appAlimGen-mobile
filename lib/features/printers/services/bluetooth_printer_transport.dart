@@ -43,6 +43,7 @@ class BluetoothPrinterTransport implements PrinterTransport {
         )
         .toList(growable: false);
   }
+
   @override
   Future<void> connect(String address) async {
     final ok = await _channel

@@ -27,8 +27,9 @@ class InvoicesRepository extends _BusinessRepository<InvoiceSummary> {
   const InvoicesRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'invoices/', InvoiceSummary.fromJson);
 
-  Future<Map<String, dynamic>> get(int id) async =>
-      CrudRepository(dio, errors).getObject('invoices/$id/');
+  Future<SaleDetails> get(int id) async => SaleDetails.fromJson(
+    await CrudRepository(dio, errors).getObject('invoices/$id/'),
+  );
   Future<Map<String, dynamic>> printData(
     int id, {
     int width = 80,
@@ -80,12 +81,33 @@ class SalesRepository extends _BusinessRepository<SaleSummary> {
   const SalesRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'sales/', SaleSummary.fromJson);
 
-  Future<SaleSummary> create(
+  Future<SaleDetails> get(int id) async => SaleDetails.fromJson(
+    await CrudRepository(dio, errors).getObject('sales/$id/'),
+  );
+
+  Future<SaleDetails> create(
     SaleWriteRequest request,
     String idempotencyKey,
-  ) async => SaleSummary.fromJson(
+  ) async => SaleDetails.fromJson(
     await _postObject('sales/', request.toJson(), idempotencyKey),
   );
+  Future<SaleDetails> update(
+    int id,
+    SaleWriteRequest request,
+    String idempotencyKey,
+  ) async {
+    try {
+      final response = await dio.patch<dynamic>(
+        'sales/$id/',
+        data: request.toJson(),
+        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
+      return SaleDetails.fromJson(ApiEnvelope.object(response.data));
+    } catch (error) {
+      throw errors.map(error);
+    }
+  }
+
   Future<void> delete(int id) async {
     try {
       await dio.delete<dynamic>('sales/$id/');
@@ -96,8 +118,11 @@ class SalesRepository extends _BusinessRepository<SaleSummary> {
 
   Future<List<TransactionOption>> searchClients(String query) =>
       _searchOptions('clients/', query, (j) => j['name']?.toString() ?? '');
-  Future<List<TransactionOption>> searchProducts(String query) =>
-      _searchProducts(dio, errors, query);
+  Future<List<TransactionOption>> searchProducts(
+    String query, {
+    int? clientId,
+  }) =>
+      _searchProducts(dio, errors, query, context: 'sale', clientId: clientId);
   Future<Map<String, dynamic>> price(
     int productId,
     int clientId, {
@@ -206,7 +231,7 @@ class PurchasesRepository extends _BusinessRepository<PurchaseSummary> {
   }
 
   Future<List<TransactionOption>> searchProducts(String query) =>
-      _searchProducts(dio, errors, query);
+      _searchProducts(dio, errors, query, context: 'purchase');
 }
 
 class ExpensesRepository extends _BusinessRepository<ExpenseSummary> {
@@ -266,12 +291,16 @@ class PaymentsRepository extends _BusinessRepository<PaymentSummary> {
 Future<List<TransactionOption>> _searchProducts(
   Dio dio,
   ErrorMapper errors,
-  String query,
-) async {
+  String query, {
+  required String context,
+  int? clientId,
+}) async {
   try {
+    final queryParameters = <String, dynamic>{'q': query, 'context': context};
+    if (clientId case final id?) queryParameters['client_id'] = id;
     final response = await dio.get<dynamic>(
       'products/search/',
-      queryParameters: {'q': query, 'context': 'loading_order'},
+      queryParameters: queryParameters,
     );
     final data = ApiEnvelope.data(response.data);
     final raw = data is Map ? data['results'] : data;
