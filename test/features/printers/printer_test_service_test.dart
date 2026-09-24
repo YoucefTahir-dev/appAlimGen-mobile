@@ -161,6 +161,50 @@ void main() {
     expect(text, contains('Reste'));
     expect(text, contains('60.00'));
   });
+
+  test('raster ticket converts RGBA pixels to ESC/POS image bytes', () {
+    final bytes = EscPosPrinterDriver().rasterTicket(
+      rgba: Uint8List.fromList([
+        0,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+      ]),
+      width: 8,
+      height: 1,
+    );
+    expect(bytes.sublist(0, 10), [0x1b, 0x40, 0x1d, 0x76, 0x30, 0, 1, 0, 1, 0]);
+    expect(bytes[10], 0xaa);
+    expect(bytes.sublist(bytes.length - 3), [0x1d, 0x56, 0]);
+  });
 }
 
 class _FakeTransport implements PrinterTransport {
@@ -221,4 +265,11 @@ class _FakeDriver implements PrinterDriver {
     required Map<String, dynamic> data,
     required int paperWidth,
   }) => Uint8List.fromList([4, 5, 6]);
+
+  @override
+  Uint8List rasterTicket({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  }) => Uint8List.fromList([7, 8, 9]);
 }

@@ -25,4 +25,10 @@ abstract class PrinterDriver {
     required Map<String, dynamic> data,
     required int paperWidth,
   });
+
+  Uint8List rasterTicket({
+    required Uint8List rgba,
+    required int width,
+    required int height,
+  });
 }

@@ -11,6 +11,7 @@ import 'package:app_alim_gen_mobile/features/business_lists/presentation/expense
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/transaction_form_screens.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sale_detail_screen.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
@@ -114,24 +115,15 @@ class InvoicesScreen extends ConsumerWidget {
   const InvoicesScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = AppLocalizations.of(context);
     return ModuleScaffold(
-      title: s.text('invoices'),
+      title: AppLocalizations.of(context).text('invoices'),
       path: '/invoices',
       body: PagedListBody<InvoiceSummary, InvoicesController>(
         provider: invoicesProvider,
         searchable: true,
-        itemBuilder: (context, item) => _recordCard(
-          context,
-          icon: Icons.receipt_long_outlined,
-          title: item.number,
-          details: [
-            '${s.text('client')}: #${item.clientId ?? '—'}',
-            '${s.text('date')}: ${_date(item.date)}',
-            '${s.text('status')}: ${item.paymentStatus}',
-          ],
-          amount: '${item.total} DZD',
-          onTap: () => Navigator.push<void>(
+        itemBuilder: (context, item) => InvoiceCard(
+          invoice: item,
+          onOpen: () => Navigator.push<void>(
             context,
             MaterialPageRoute(
               builder: (_) => InvoiceDetailScreen(invoiceId: item.id),
@@ -141,6 +133,152 @@ class InvoicesScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class InvoiceCard extends StatelessWidget {
+  const InvoiceCard({super.key, required this.invoice, required this.onOpen});
+  final InvoiceSummary invoice;
+  final VoidCallback onOpen;
+
+  String _status(BuildContext context) => switch (invoice.paymentStatus) {
+    'paid' => SalesStrings.of(context)('paidStatus'),
+    'partial' => SalesStrings.of(context)('partialStatus'),
+    'unpaid' => SalesStrings.of(context)('unpaidStatus'),
+    'unreconciled' => SalesStrings.of(context)('unreconciledStatus'),
+    _ => invoice.paymentStatus,
+  };
+
+  Color _color(BuildContext context) => switch (invoice.paymentStatus) {
+    'paid' => Colors.green.shade700,
+    'partial' => Colors.orange.shade800,
+    'unpaid' => Theme.of(context).colorScheme.error,
+    _ => Colors.blueGrey.shade700,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = SalesStrings.of(context);
+    final color = _color(context);
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 10, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      invoice.number,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    key: Key('invoice-list-status-${invoice.paymentStatus}'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: .11),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      _status(context),
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                invoice.clientName.isEmpty
+                    ? '${t('client')} #${invoice.clientId ?? '—'}'
+                    : invoice.clientName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                _invoiceDate(invoice.date),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const Divider(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: _InvoiceListAmount(
+                      label: t('total'),
+                      value: invoice.total,
+                      strong: true,
+                    ),
+                  ),
+                  Expanded(
+                    child: _InvoiceListAmount(
+                      label: t('paidShort'),
+                      value: invoice.amountPaid,
+                    ),
+                  ),
+                  Expanded(
+                    child: _InvoiceListAmount(
+                      label: t('dueShort'),
+                      value: invoice.balanceDue,
+                    ),
+                  ),
+                  TextButton(onPressed: onOpen, child: Text(t('preview'))),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvoiceListAmount extends StatelessWidget {
+  const _InvoiceListAmount({
+    required this.label,
+    required this.value,
+    this.strong = false,
+  });
+  final String label, value;
+  final bool strong;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: Theme.of(context).textTheme.labelSmall),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          '$value DZD',
+          style: TextStyle(
+            fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+String _invoiceDate(String value) {
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  if (parsed == null) return _date(value);
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(parsed.day)}/${two(parsed.month)}/${parsed.year} · ${two(parsed.hour)}:${two(parsed.minute)}';
 }
 
 class SuppliersScreen extends ConsumerWidget {

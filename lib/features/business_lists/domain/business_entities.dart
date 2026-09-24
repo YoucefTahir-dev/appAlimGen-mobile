@@ -6,6 +6,9 @@ class InvoiceSummary {
     required this.date,
     required this.total,
     required this.paymentStatus,
+    required this.clientName,
+    required this.amountPaid,
+    required this.balanceDue,
   });
   final int id;
   final String number;
@@ -13,6 +16,9 @@ class InvoiceSummary {
   final String date;
   final String total;
   final String paymentStatus;
+  final String clientName;
+  final String amountPaid;
+  final String balanceDue;
   factory InvoiceSummary.fromJson(Map<String, dynamic> json) => InvoiceSummary(
     id: (json['id'] as num).toInt(),
     number: json['invoice_number']?.toString() ?? '',
@@ -20,6 +26,9 @@ class InvoiceSummary {
     date: json['created_at']?.toString() ?? '',
     total: json['total']?.toString() ?? '0.00',
     paymentStatus: json['payment_status']?.toString() ?? '',
+    clientName: (json['client_details'] as Map?)?['name']?.toString() ?? '',
+    amountPaid: json['amount_paid']?.toString() ?? '0.00',
+    balanceDue: json['balance_due']?.toString() ?? '0.00',
   );
 }
 
