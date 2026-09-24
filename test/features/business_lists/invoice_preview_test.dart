@@ -3,6 +3,7 @@ import 'package:app_alim_gen_mobile/features/business_lists/domain/invoice_docum
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_document_view.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_preview_screen.dart';
+import 'package:app_alim_gen_mobile/core/utils/app_formats.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/thermal_paper.dart';
 import 'package:flutter/material.dart';
@@ -268,7 +269,7 @@ void main() {
     expect(find.text('FAC-1'), findsOneWidget);
     expect(find.text('SARL Exemple'), findsOneWidget);
     expect(find.byKey(const Key('invoice-list-status-paid')), findsOneWidget);
-    expect(find.text('640.00 DZD'), findsNWidgets(2));
+    expect(find.text(AppFormats.money('640.00')), findsNWidgets(2));
   });
 
   testWidgets('les badges distinguent payée, partielle et impayée', (

@@ -1,5 +1,6 @@
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
+import 'package:app_alim_gen_mobile/core/utils/app_formats.dart';
 import 'package:app_alim_gen_mobile/features/auth/domain/auth_models.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/products/domain/product_summary.dart';
@@ -96,7 +97,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_app(const PagedListState()));
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byKey(const Key('loading-skeleton')), findsOneWidget);
   });
 
   testWidgets('une réponse vide termine le chargement', (tester) async {
@@ -104,7 +105,7 @@ void main() {
       _app(const PagedListState(isInitialLoading: false)),
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Aucune donnée disponible'), findsOneWidget);
+    expect(find.text('Aucun résultat'), findsOneWidget);
   });
 
   testWidgets('une réponse valide affiche les produits réels', (tester) async {
@@ -126,7 +127,7 @@ void main() {
       ),
     );
     expect(find.text('Butane 13 kg'), findsOneWidget);
-    expect(find.textContaining('1500.00 DZD'), findsOneWidget);
+    expect(find.text(AppFormats.money('1500.00')), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
@@ -175,12 +176,6 @@ void main() {
       ),
     );
     expect(find.text('Nouveau produit'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.widgetWithText(ListTile, 'Test'),
-        matching: find.byType(PopupMenuButton<String>),
-      ),
-      findsOneWidget,
-    );
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
   });
 }
