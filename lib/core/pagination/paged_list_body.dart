@@ -1,6 +1,7 @@
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +13,13 @@ class PagedListBody<T, C extends PagedListController<T>>
     required this.provider,
     required this.itemBuilder,
     this.searchable = false,
+    this.emptyIcon = Icons.inbox_outlined,
   });
 
   final NotifierProvider<C, PagedListState<T>> provider;
   final Widget Function(BuildContext, T) itemBuilder;
   final bool searchable;
+  final IconData emptyIcon;
 
   @override
   ConsumerState<PagedListBody<T, C>> createState() =>
@@ -52,16 +55,9 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
     final search = widget.searchable
         ? Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              key: const Key('module-search'),
+            child: AppSearchField(
+              hint: strings.text('searchHint'),
               onChanged: ref.read(widget.provider.notifier).search,
-              decoration: InputDecoration(
-                labelText: strings.text('search'),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: state.query.isEmpty
-                    ? null
-                    : const Icon(Icons.filter_alt_outlined),
-              ),
             ),
           )
         : null;
@@ -70,7 +66,7 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
       return Column(
         children: [
           ?search,
-          const Expanded(child: Center(child: CircularProgressIndicator())),
+          const Expanded(child: LoadingSkeleton()),
         ],
       );
     }
@@ -87,25 +83,11 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
           ?search,
           Expanded(
             child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: Theme.of(context).colorScheme.error,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(message, textAlign: TextAlign.center),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: ref.read(widget.provider.notifier).refresh,
-                      child: Text(strings.retry),
-                    ),
-                  ],
-                ),
+              child: AppErrorState(
+                title: strings.text('loadErrorTitle'),
+                message: message,
+                retryLabel: strings.retry,
+                onRetry: ref.read(widget.provider.notifier).refresh,
               ),
             ),
           ),
@@ -123,8 +105,12 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const SizedBox(height: 180),
-                  Center(child: Text(strings.empty)),
+                  const SizedBox(height: 100),
+                  AppEmptyState(
+                    icon: widget.emptyIcon,
+                    title: strings.text('emptyTitle'),
+                    message: strings.text('emptyMessage'),
+                  ),
                 ],
               ),
             ),
@@ -154,7 +140,12 @@ class _PagedListBodyState<T, C extends PagedListController<T>>
                 if (state.isLoadingMore) {
                   return const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
+                    ),
                   );
                 }
                 return Center(

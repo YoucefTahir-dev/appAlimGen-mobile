@@ -1,4 +1,6 @@
 import 'package:app_alim_gen_mobile/core/config/app_config.dart';
+import 'package:app_alim_gen_mobile/app/theme/app_colors.dart';
+import 'package:app_alim_gen_mobile/app/theme/app_tokens.dart';
 import 'package:app_alim_gen_mobile/core/navigation/app_module.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
@@ -22,20 +24,60 @@ class AppDrawer extends ConsumerWidget {
         .toList(growable: false);
     NavigationSection? previousSection;
     final children = <Widget>[
-      UserAccountsDrawerHeader(
-        currentAccountPicture: CircleAvatar(
-          child: Text(
-            (user?.displayName ?? '?').characters.first.toUpperCase(),
-          ),
+      DrawerHeader(
+        margin: EdgeInsets.zero,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: const BoxDecoration(color: AppColors.primaryDark),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppRadius.card),
+              ),
+              child: Image.asset('assets/images/logo.png'),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'EL AMINE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user?.displayName ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    [
+                      user?.role ?? '',
+                      if (kDebugMode) AppConfig.environmentLabel,
+                    ].where((value) => value.isNotEmpty).join(' • '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        accountName: Text(user?.displayName ?? ''),
-        accountEmail: Text(
-          [
-            user?.role ?? '',
-            if (kDebugMode) 'API: ${AppConfig.environmentLabel}',
-          ].where((value) => value.isNotEmpty).join(' • '),
-        ),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
       ),
     ];
     for (final module in visible) {
@@ -51,6 +93,11 @@ class AppDrawer extends ConsumerWidget {
           leading: Icon(module.icon),
           title: Text(strings.text(module.labelKey)),
           selected: currentPath == module.path,
+          selectedColor: AppColors.primary,
+          selectedTileColor: AppColors.primaryContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.input),
+          ),
           onTap: () {
             Navigator.pop(context);
             context.go(module.path);
@@ -62,14 +109,27 @@ class AppDrawer extends ConsumerWidget {
       const Divider(),
       ListTile(
         key: const Key('drawer-logout'),
-        leading: const Icon(Icons.logout),
+        leading: const Icon(Icons.logout, color: AppColors.danger),
         title: Text(strings.logout),
+        textColor: AppColors.danger,
         onTap: () => _confirmLogout(context, ref),
       ),
       const SafeArea(top: false, child: SizedBox(height: 8)),
     ]);
     return Drawer(
-      child: ListView(padding: EdgeInsets.zero, children: children),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: children
+            .map(
+              (child) => child is ListTile
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: child,
+                    )
+                  : child,
+            )
+            .toList(growable: false),
+      ),
     );
   }
 

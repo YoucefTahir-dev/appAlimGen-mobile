@@ -1,11 +1,24 @@
+import 'package:app_alim_gen_mobile/app/theme/app_colors.dart';
+import 'package:app_alim_gen_mobile/app/theme/app_tokens.dart';
 import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
+import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/core/utils/app_formats.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/transaction_form_screens.dart';
+import 'package:app_alim_gen_mobile/features/clients/presentation/client_form_screen.dart';
+import 'package:app_alim_gen_mobile/features/clients/presentation/clients_screen.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/domain/dashboard_filter.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/domain/dashboard_summary.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/presentation/dashboard_controller.dart';
+import 'package:app_alim_gen_mobile/features/loading_orders/presentation/loading_order_form_screen.dart';
+import 'package:app_alim_gen_mobile/features/loading_orders/presentation/loading_orders_screen.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -31,40 +44,67 @@ class DashboardScreen extends ConsumerWidget {
           loading: () => ListView(
             key: const Key('dashboard-loading'),
             children: [
-              _PeriodFilter(filter: filter),
-              const SizedBox(height: 180),
-              const Center(child: CircularProgressIndicator()),
+              _WelcomeHeader(filter: filter),
+              const SizedBox(height: 8),
+              const SizedBox(height: 520, child: LoadingSkeleton(rows: 4)),
             ],
           ),
           error: (error, _) => ListView(
             key: const Key('dashboard-error'),
             children: [
-              _PeriodFilter(filter: filter),
-              const SizedBox(height: 120),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.error_outline, size: 48),
-                      const SizedBox(height: 12),
-                      Text(
-                        strings.text('dashboardLoadError'),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () => ref.invalidate(dashboardProvider),
-                        child: Text(strings.retry),
-                      ),
-                    ],
-                  ),
-                ),
+              _WelcomeHeader(filter: filter),
+              const SizedBox(height: 80),
+              AppErrorState(
+                title: strings.text('loadErrorTitle'),
+                message: strings.text('dashboardLoadError'),
+                retryLabel: strings.retry,
+                onRetry: () => ref.invalidate(dashboardProvider),
               ),
             ],
           ),
           data: (data) => _DashboardContent(data: data, filter: filter),
         ),
+      ),
+    );
+  }
+}
+
+class _WelcomeHeader extends ConsumerWidget {
+  const _WelcomeHeader({required this.filter});
+  final DashboardFilter filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = AppLocalizations.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final language = Localizations.localeOf(context).languageCode;
+    final name = user?.firstName.trim().isNotEmpty == true
+        ? user!.firstName
+        : user?.displayName ?? '';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${strings.text('goodMorning')} $name 👋',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            DateFormat('EEEE d MMMM', language).format(DateTime.now()),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _PeriodFilter(filter: filter),
+        ],
       ),
     );
   }
@@ -77,145 +117,117 @@ class _PeriodFilter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: DropdownButtonFormField<String>(
-        key: const Key('dashboard-period'),
-        initialValue: filter.period,
-        decoration: InputDecoration(
-          labelText: strings.text('period'),
-          prefixIcon: const Icon(Icons.date_range_outlined),
-        ),
-        items: const ['today', 'yesterday', 'week', 'month', 'year', 'custom']
-            .map(
-              (period) => DropdownMenuItem(
-                value: period,
-                child: Text(strings.text('period_$period')),
-              ),
-            )
-            .toList(growable: false),
-        onChanged: (period) async {
-          if (period == null || period == filter.period) return;
-          if (period != 'custom') {
-            ref.read(dashboardFilterProvider.notifier).selectPeriod(period);
-            return;
-          }
-          final now = DateTime.now();
-          final range = await showDateRangePicker(
-            context: context,
-            firstDate: DateTime(now.year - 5),
-            lastDate: now,
-            initialDateRange: DateTimeRange(
-              start: filter.startDate ?? now,
-              end: filter.endDate ?? now,
-            ),
-          );
-          if (range != null) {
-            ref
-                .read(dashboardFilterProvider.notifier)
-                .selectCustom(range.start, range.end);
-          }
-        },
+    return DropdownButtonFormField<String>(
+      key: const Key('dashboard-period'),
+      initialValue: filter.period,
+      decoration: InputDecoration(
+        labelText: strings.text('period'),
+        prefixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+        constraints: const BoxConstraints(maxWidth: 300),
       ),
+      items: const ['today', 'yesterday', 'week', 'month', 'year', 'custom']
+          .map(
+            (period) => DropdownMenuItem(
+              value: period,
+              child: Text(strings.text('period_$period')),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (period) async {
+        if (period == null || period == filter.period) return;
+        if (period != 'custom') {
+          ref.read(dashboardFilterProvider.notifier).selectPeriod(period);
+          return;
+        }
+        final now = DateTime.now();
+        final range = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(now.year - 5),
+          lastDate: now,
+          initialDateRange: DateTimeRange(
+            start: filter.startDate ?? now,
+            end: filter.endDate ?? now,
+          ),
+        );
+        if (range != null) {
+          ref
+              .read(dashboardFilterProvider.notifier)
+              .selectCustom(range.start, range.end);
+        }
+      },
     );
   }
 }
 
-class _DashboardContent extends StatelessWidget {
+class _DashboardContent extends ConsumerWidget {
   const _DashboardContent({required this.data, required this.filter});
   final DashboardSummary data;
   final DashboardFilter filter;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final strings = AppLocalizations.of(context);
     final items = <_Kpi>[
-      _Kpi(strings.text('salesToday'), '${data.salesToday} DZD', Icons.today),
-      _Kpi(
-        strings.text('periodRevenue'),
-        '${data.revenue} DZD',
-        Icons.payments_outlined,
-        data.comparisons['revenue'],
-      ),
       _Kpi(
         strings.text('salesCount'),
         '${data.salesCount}',
         Icons.receipt_long,
       ),
-      _Kpi(strings.basket, '${data.averageBasket} DZD', Icons.shopping_basket),
+      _Kpi(
+        strings.basket,
+        AppFormats.money(data.averageBasket),
+        Icons.shopping_basket_outlined,
+      ),
       _Kpi(
         strings.text('grossProfit'),
-        '${data.grossProfit} DZD',
+        AppFormats.money(data.grossProfit),
         Icons.trending_up,
-        data.comparisons['gross_profit'],
       ),
       _Kpi(
         strings.text('expensesTotal'),
-        '${data.expensesTotal} DZD',
+        AppFormats.money(data.expensesTotal),
         Icons.account_balance_wallet_outlined,
-        data.comparisons['expenses'],
       ),
       _Kpi(
         strings.text('netProfit'),
-        '${data.netProfit} DZD',
+        AppFormats.money(data.netProfit),
         Icons.insights_outlined,
-        data.comparisons['net_profit'],
       ),
       _Kpi(
         strings.text('stockValue'),
-        '${data.stockValue} DZD',
-        Icons.warehouse,
-      ),
-      _Kpi(
-        strings.products,
-        '${data.totalProducts}',
-        Icons.inventory_2_outlined,
-      ),
-      _Kpi(strings.clients, '${data.totalClients}', Icons.groups_outlined),
-      _Kpi(strings.suppliers, '${data.totalSuppliers}', Icons.local_shipping),
-      _Kpi(
-        strings.text('purchasesTotal'),
-        '${data.purchasesTotal} DZD',
-        Icons.shopping_cart_checkout,
+        AppFormats.money(data.stockValue),
+        Icons.warehouse_outlined,
       ),
     ];
 
     return ListView(
       key: const Key('dashboard-success'),
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       children: [
-        _PeriodFilter(filter: filter),
+        _WelcomeHeader(filter: filter),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${data.startDate} — ${data.endDate}',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              if (data.notificationCount > 0)
-                Chip(
-                  avatar: const Icon(Icons.notifications_outlined, size: 18),
-                  label: Text('${data.notificationCount}'),
-                ),
-            ],
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: _RevenueHero(data: data),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: SectionHeader(title: strings.text('overview')),
         ),
         GridView.builder(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.md),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 240,
-            mainAxisExtent: 158,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+            maxCrossAxisExtent: 230,
+            mainAxisExtent: 132,
+            crossAxisSpacing: AppSpacing.sm,
+            mainAxisSpacing: AppSpacing.sm,
           ),
           itemCount: items.length,
           itemBuilder: (_, index) => _KpiCard(item: items[index]),
         ),
+        _QuickActions(ref: ref),
         _OperationalSummary(data: data),
         if (data.topProducts.isNotEmpty)
           _RankingSection(
@@ -232,12 +244,88 @@ class _DashboardContent extends StatelessWidget {
   }
 }
 
+class _RevenueHero extends StatelessWidget {
+  const _RevenueHero({required this.data});
+  final DashboardSummary data;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    final comparison = data.comparisons['revenue'];
+    final down = comparison?.direction == 'down';
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primaryDark, AppColors.primary],
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  strings.text('periodRevenue'),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (data.notificationCount > 0)
+                Badge(
+                  label: Text('${data.notificationCount}'),
+                  child: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.white,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            AppFormats.money(data.revenue),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontSize: 32,
+            ),
+          ),
+          if (comparison != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Icon(
+                  down ? Icons.trending_down : Icons.trending_up,
+                  size: 18,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    '${comparison.percent}% • ${strings.text('previousPeriod')}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _Kpi {
-  const _Kpi(this.label, this.value, this.icon, [this.comparison]);
+  const _Kpi(this.label, this.value, this.icon);
   final String label;
   final String value;
   final IconData icon;
-  final DashboardComparison? comparison;
 }
 
 class _KpiCard extends StatelessWidget {
@@ -245,40 +333,121 @@ class _KpiCard extends StatelessWidget {
   final _Kpi item;
 
   @override
-  Widget build(BuildContext context) {
-    final comparison = item.comparison;
-    final comparisonColor = switch (comparison?.direction) {
-      'up' => Colors.green,
-      'down' => Colors.red,
-      _ => Theme.of(context).colorScheme.onSurfaceVariant,
-    };
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(item.icon, size: 22),
-            const Spacer(),
-            Text(item.label, maxLines: 2, overflow: TextOverflow.ellipsis),
-            Text(
-              item.value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            if (comparison != null)
-              Text(
-                '${AppLocalizations.of(context).text('previousPeriod')}: '
-                '${comparison.previous} • ${comparison.percent}%',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: comparisonColor),
-              ),
-          ],
+  Widget build(BuildContext context) => AppCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(item.icon, size: 20, color: AppColors.primary),
         ),
+        const Spacer(),
+        Text(
+          item.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          item.value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      ],
+    ),
+  );
+}
+
+class _QuickActions extends ConsumerWidget {
+  const _QuickActions({required this.ref});
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef _) {
+    final strings = AppLocalizations.of(context);
+    final user = ref.watch(authControllerProvider).user;
+    final actions = <Widget>[];
+
+    void add(
+      bool allowed,
+      String label,
+      IconData icon,
+      Widget page,
+      VoidCallback refresh,
+    ) {
+      if (!allowed) return;
+      actions.add(
+        FilledButton.tonalIcon(
+          onPressed: () async {
+            final changed = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(builder: (_) => page),
+            );
+            if (changed == true) refresh();
+          },
+          icon: Icon(icon),
+          label: Text(label),
+        ),
+      );
+    }
+
+    add(
+      user?.can(AppPermissions.addSale) ?? false,
+      strings.text('newSale'),
+      Icons.add_shopping_cart,
+      const SaleFormScreen(),
+      () => ref.invalidate(salesProvider),
+    );
+    add(
+      user?.can(AppPermissions.addClient) ?? false,
+      strings.text('newClient'),
+      Icons.person_add_alt_1,
+      const ClientFormScreen(),
+      () => ref.invalidate(clientsProvider),
+    );
+    add(
+      user?.can(AppPermissions.addPurchase) ?? false,
+      strings.text('newPurchase'),
+      Icons.shopping_cart_checkout,
+      const PurchaseFormScreen(),
+      () => ref.invalidate(purchasesProvider),
+    );
+    add(
+      user?.can(AppPermissions.addLoadingOrder) ?? false,
+      strings.text('newLoadingOrder'),
+      Icons.local_shipping_outlined,
+      const LoadingOrderFormScreen(),
+      () => ref.invalidate(loadingOrdersProvider),
+    );
+    if (actions.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title: strings.text('quickActions')),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: actions,
+          ),
+        ],
       ),
     );
   }
@@ -292,35 +461,57 @@ class _OperationalSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
     final rows = [
-      (strings.text('productsSold'), data.productsSold),
-      (strings.text('productsPurchased'), data.productsPurchased),
-      (strings.text('outOfStock'), data.outOfStock),
-      (strings.text('lowStock'), data.lowStock),
-      (strings.text('nearStockout'), data.nearStockout),
-      (strings.text('unpaidInvoices'), data.unpaidInvoices),
-      (strings.text('pendingSupplierPayments'), data.pendingSupplierPayments),
+      (strings.products, data.totalProducts, Icons.inventory_2_outlined),
+      (strings.clients, data.totalClients, Icons.groups_outlined),
+      (strings.suppliers, data.totalSuppliers, Icons.local_shipping_outlined),
+      (
+        strings.text('outOfStock'),
+        data.outOfStock,
+        Icons.warning_amber_rounded,
+      ),
+      (strings.text('lowStock'), data.lowStock, Icons.inventory_outlined),
+      (
+        strings.text('unpaidInvoices'),
+        data.unpaidInvoices,
+        Icons.receipt_long_outlined,
+      ),
     ];
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      child: AppCard(
         child: Wrap(
-          spacing: 24,
-          runSpacing: 14,
+          spacing: AppSpacing.lg,
+          runSpacing: AppSpacing.md,
           children: rows
               .map(
                 (row) => SizedBox(
                   width: 135,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        row.$1,
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                      Text(
-                        '${row.$2}',
-                        style: Theme.of(context).textTheme.titleLarge,
+                      Icon(row.$3, size: 20, color: AppColors.primary),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${row.$2}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            Text(
+                              row.$1,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.muted),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -339,26 +530,40 @@ class _RankingSection extends StatelessWidget {
   final List<DashboardRanking> items;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      0,
+      AppSpacing.md,
+      AppSpacing.md,
+    ),
+    child: AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const Divider(),
+          SectionHeader(title: title),
+          const SizedBox(height: AppSpacing.sm),
           ...items
               .take(5)
               .map(
-                (item) => ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(item.name),
-                  trailing: Text(
-                    item.quantity > 0
-                        ? '${item.quantity}'
-                        : '${item.total} DZD',
+                (item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        item.quantity > 0
+                            ? '${item.quantity}'
+                            : AppFormats.money(item.total),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
                 ),
               ),
