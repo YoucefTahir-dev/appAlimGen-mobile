@@ -1,6 +1,7 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/features/clients/domain/client_summary.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
@@ -199,14 +200,16 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(_editing ? _t('editClient') : _t('newClient'))),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const LoadingSkeleton(rows: 6)
         : Form(
             key: _key,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                FormSectionHeader(title: _t('sectionInformation')),
                 _text('name', _t('name'), validator: _required),
                 _text('phone', _t('phone'), keyboard: TextInputType.phone),
+                FormSectionHeader(title: _t('sectionLocation')),
                 _text(
                   'address',
                   _t('address'),
@@ -244,6 +247,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       setState(() => _customerType = value ?? 'RETAIL'),
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionAdditional')),
                 _text(
                   'email',
                   _t('email'),

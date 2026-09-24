@@ -5,6 +5,7 @@ import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/features/clients/domain/client_summary.dart';
 import 'package:app_alim_gen_mobile/features/clients/presentation/client_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
@@ -42,51 +43,65 @@ class ClientsScreen extends ConsumerWidget {
       body: PagedListBody<ClientSummary, ClientsController>(
         provider: clientsProvider,
         searchable: true,
-        itemBuilder: (context, client) => Card(
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-            title: Text(client.name),
-            subtitle: Text(
-              [
-                if (client.phone.isNotEmpty)
-                  '${strings.text('phone')}: ${client.phone}',
-                if (client.address.isNotEmpty)
-                  '${strings.text('address')}: ${client.address}',
-                '${strings.text('customerType')}: ${client.customerType}',
-              ].join('\n'),
-            ),
-            isThreeLine: true,
-            trailing: canChange || canDelete
-                ? PopupMenuButton<String>(
-                    onSelected: (action) async {
-                      if (action == 'edit') {
-                        final changed = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ClientFormScreen(clientId: client.id),
-                          ),
-                        );
-                        if (changed == true) {
-                          ref.read(clientsProvider.notifier).refresh();
-                        }
-                      } else {
-                        await _delete(context, ref, client);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      if (canChange)
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text(crud.text('edit')),
-                        ),
-                      if (canDelete)
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text(crud.text('delete')),
-                        ),
+        emptyIcon: Icons.groups_outlined,
+        itemBuilder: (context, client) => AppCard(
+          onTap: canChange ? () => _editClient(context, ref, client.id) : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                child: Text(
+                  client.name.trim().isEmpty
+                      ? '?'
+                      : client.name.trim().characters.first.toUpperCase(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      client.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    StatusBadge(
+                      label: client.customerType,
+                      tone: StatusTone.neutral,
+                    ),
+                    if (client.phone.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _ClientLine(
+                        icon: Icons.phone_outlined,
+                        value: client.phone,
+                      ),
                     ],
-                  )
-                : null,
+                    if (client.address.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      _ClientLine(
+                        icon: Icons.location_on_outlined,
+                        value: client.address,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (canChange || canDelete)
+                IconButton(
+                  tooltip: strings.text('more'),
+                  onPressed: () => _showActions(
+                    context,
+                    ref,
+                    client,
+                    canChange: canChange,
+                    canDelete: canDelete,
+                  ),
+                  icon: const Icon(Icons.more_vert),
+                )
+              else
+                const Icon(Icons.chevron_right),
+            ],
           ),
         ),
       ),
@@ -105,6 +120,64 @@ class ClientsScreen extends ConsumerWidget {
             )
           : null,
     );
+  }
+
+  Future<void> _editClient(BuildContext context, WidgetRef ref, int id) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ClientFormScreen(clientId: id)),
+    );
+    if (changed == true) ref.read(clientsProvider.notifier).refresh();
+  }
+
+  Future<void> _showActions(
+    BuildContext context,
+    WidgetRef ref,
+    ClientSummary client, {
+    required bool canChange,
+    required bool canDelete,
+  }) async {
+    final crud = CrudStrings.of(context);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  client.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (canChange)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(crud.text('edit')),
+                  onTap: () => Navigator.pop(context, 'edit'),
+                ),
+              if (canDelete)
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: Text(crud.text('delete')),
+                  textColor: Theme.of(context).colorScheme.error,
+                  onTap: () => Navigator.pop(context, 'delete'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'edit') {
+      await _editClient(context, ref, client.id);
+    } else if (action == 'delete') {
+      await _delete(context, ref, client);
+    }
   }
 
   Future<void> _delete(
@@ -134,20 +207,44 @@ class ClientsScreen extends ConsumerWidget {
       await ref.read(clientsRepositoryProvider).delete(client.id);
       await ref.read(clientsProvider.notifier).refresh();
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Suppression réussie.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(CrudStrings.of(context).text('deleteSuccess')),
+          ),
+        );
       }
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              error is AppFailure ? error.message : 'Suppression impossible.',
+              error is AppFailure
+                  ? error.message
+                  : AppLocalizations.of(context).text('apiError'),
             ),
           ),
         );
       }
     }
   }
+}
+
+class _ClientLine extends StatelessWidget {
+  const _ClientLine({required this.icon, required this.value});
+  final IconData icon;
+  final String value;
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(
+        icon,
+        size: 16,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+    ],
+  );
 }

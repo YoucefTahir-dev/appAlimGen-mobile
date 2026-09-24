@@ -5,6 +5,8 @@ import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
+import 'package:app_alim_gen_mobile/core/utils/app_formats.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/supplier_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/expense_form_screen.dart';
@@ -93,6 +95,19 @@ final paymentsProvider =
 
 String _date(String value) =>
     value.length >= 10 ? value.substring(0, 10) : value;
+String _paymentLabel(BuildContext context, String status) => switch (status) {
+  'paid' => SalesStrings.of(context)('paidStatus'),
+  'partial' => SalesStrings.of(context)('partialStatus'),
+  'unpaid' => SalesStrings.of(context)('unpaidStatus'),
+  'unreconciled' => SalesStrings.of(context)('unreconciledStatus'),
+  _ => status,
+};
+StatusTone _paymentTone(String status) => switch (status) {
+  'paid' => StatusTone.success,
+  'partial' => StatusTone.warning,
+  'unpaid' => StatusTone.danger,
+  _ => StatusTone.neutral,
+};
 Widget _recordCard(
   BuildContext context, {
   required IconData icon,
@@ -100,14 +115,36 @@ Widget _recordCard(
   required List<String> details,
   required String amount,
   VoidCallback? onTap,
-}) => Card(
-  child: ListTile(
-    leading: Icon(icon),
-    title: Text(title.isEmpty ? '—' : title),
-    subtitle: Text(details.where((value) => value.isNotEmpty).join('\n')),
-    trailing: Text(amount, style: Theme.of(context).textTheme.titleMedium),
-    isThreeLine: details.length > 1,
-    onTap: onTap,
+}) => AppCard(
+  onTap: onTap,
+  child: Row(
+    children: [
+      CircleAvatar(child: Icon(icon, size: 20)),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title.isEmpty ? '—' : title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            ...details
+                .where((value) => value.isNotEmpty)
+                .map(
+                  (value) => Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text(amount, style: Theme.of(context).textTheme.titleMedium),
+    ],
   ),
 );
 
@@ -121,6 +158,7 @@ class InvoicesScreen extends ConsumerWidget {
       body: PagedListBody<InvoiceSummary, InvoicesController>(
         provider: invoicesProvider,
         searchable: true,
+        emptyIcon: Icons.receipt_long_outlined,
         itemBuilder: (context, item) => InvoiceCard(
           invoice: item,
           onOpen: () => Navigator.push<void>(
@@ -263,7 +301,7 @@ class _InvoiceListAmount extends StatelessWidget {
         fit: BoxFit.scaleDown,
         alignment: AlignmentDirectional.centerStart,
         child: Text(
-          '$value DZD',
+          AppFormats.money(value),
           style: TextStyle(
             fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
             fontSize: 12,
@@ -297,48 +335,72 @@ class SuppliersScreen extends ConsumerWidget {
       body: PagedListBody<SupplierSummary, SuppliersController>(
         provider: suppliersProvider,
         searchable: true,
-        itemBuilder: (context, item) => Card(
-          child: ListTile(
-            leading: const Icon(Icons.local_shipping_outlined),
-            title: Text(item.name),
-            subtitle: Text(
-              [
-                if (item.phone.isNotEmpty) '${s.text('phone')}: ${item.phone}',
-                if (item.address.isNotEmpty)
-                  '${s.text('address')}: ${item.address}',
-              ].join('\n'),
-            ),
-            trailing: canChange || canDelete
-                ? PopupMenuButton<String>(
-                    onSelected: (action) async {
-                      if (action == 'edit') {
-                        final changed = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SupplierFormScreen(supplierId: item.id),
-                          ),
-                        );
-                        if (changed == true) {
-                          ref.read(suppliersProvider.notifier).refresh();
-                        }
-                      } else {
-                        await _deleteSupplier(context, ref, item);
+        emptyIcon: Icons.local_shipping_outlined,
+        itemBuilder: (context, item) => AppCard(
+          child: Row(
+            children: [
+              CircleAvatar(
+                child: Text(
+                  item.name.isEmpty
+                      ? '?'
+                      : item.name.characters.first.toUpperCase(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (item.phone.isNotEmpty)
+                      Text(
+                        item.phone,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    if (item.address.isNotEmpty)
+                      Text(
+                        item.address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ),
+              if (canChange || canDelete)
+                PopupMenuButton<String>(
+                  onSelected: (action) async {
+                    if (action == 'edit') {
+                      final changed = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              SupplierFormScreen(supplierId: item.id),
+                        ),
+                      );
+                      if (changed == true) {
+                        ref.read(suppliersProvider.notifier).refresh();
                       }
-                    },
-                    itemBuilder: (_) => [
-                      if (canChange)
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text(crud.text('edit')),
-                        ),
-                      if (canDelete)
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text(crud.text('delete')),
-                        ),
-                    ],
-                  )
-                : null,
+                    } else {
+                      await _deleteSupplier(context, ref, item);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (canChange)
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text(crud.text('edit')),
+                      ),
+                    if (canDelete)
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(crud.text('delete')),
+                      ),
+                  ],
+                ),
+            ],
           ),
         ),
       ),
@@ -409,6 +471,7 @@ class SalesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final crud = CrudStrings.of(context);
     final user = ref.watch(authControllerProvider).user;
     final canAdd = user?.can(AppPermissions.addSale) ?? false;
     final canDelete = user?.can(AppPermissions.deleteSale) ?? false;
@@ -417,54 +480,87 @@ class SalesScreen extends ConsumerWidget {
       path: '/sales',
       body: PagedListBody<SaleSummary, SalesController>(
         provider: salesProvider,
-        itemBuilder: (context, item) => Card(
-          child: ListTile(
-            onTap: () async {
-              final changed = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SaleDetailScreen(saleId: item.id),
-                ),
-              );
-              if (changed == true) ref.read(salesProvider.notifier).refresh();
-            },
-            leading: const Icon(Icons.point_of_sale_outlined),
-            title: Text(item.number),
-            subtitle: Text(
-              '${s.text('client')}: ${item.clientName.isEmpty ? '#${item.clientId ?? '—'}' : item.clientName}\n${s.text('date')}: ${_date(item.date)}\n${s.text('status')}: ${item.paymentStatus}',
-            ),
-            isThreeLine: true,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${item.total} DZD'),
-                PopupMenuButton<String>(
-                  onSelected: (action) async {
-                    if (action == 'view') {
-                      final changed = await Navigator.push<bool>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SaleDetailScreen(saleId: item.id),
-                        ),
-                      );
-                      if (changed == true) {
-                        ref.read(salesProvider.notifier).refresh();
+        searchable: true,
+        emptyIcon: Icons.point_of_sale_outlined,
+        itemBuilder: (context, item) => AppCard(
+          onTap: () async {
+            final changed = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SaleDetailScreen(saleId: item.id),
+              ),
+            );
+            if (changed == true) ref.read(salesProvider.notifier).refresh();
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.number,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  StatusBadge(
+                    label: _paymentLabel(context, item.paymentStatus),
+                    tone: _paymentTone(item.paymentStatus),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.clientName.isEmpty
+                    ? '#${item.clientId ?? '—'}'
+                    : item.clientName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                _date(item.date),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const Divider(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppFormats.money(item.total),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (action) async {
+                      if (action == 'view') {
+                        final changed = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SaleDetailScreen(saleId: item.id),
+                          ),
+                        );
+                        if (changed == true) {
+                          ref.read(salesProvider.notifier).refresh();
+                        }
+                      } else if (action == 'delete') {
+                        await _deleteSale(context, ref, item.id);
                       }
-                    } else if (action == 'delete') {
-                      await _deleteSale(context, ref, item.id);
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'view', child: Text('Voir')),
-                    if (canDelete)
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Supprimer'),
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'view',
+                        child: Text(crud.text('view')),
                       ),
-                  ],
-                ),
-              ],
-            ),
+                      if (canDelete)
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(crud.text('delete')),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -478,7 +574,7 @@ class SalesScreen extends ConsumerWidget {
                 if (changed == true) ref.read(salesProvider.notifier).refresh();
               },
               icon: const Icon(Icons.add),
-              label: const Text('Nouvelle vente'),
+              label: Text(s.text('newSale')),
             )
           : null,
     );
@@ -488,15 +584,15 @@ class SalesScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Confirmer la suppression ?'),
+        title: Text(CrudStrings.of(context).text('confirmDelete')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Annuler'),
+            child: Text(CrudStrings.of(context).text('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Supprimer'),
+            child: Text(CrudStrings.of(context).text('delete')),
           ),
         ],
       ),
@@ -528,25 +624,49 @@ class PurchasesScreen extends ConsumerWidget {
       path: '/purchases',
       body: PagedListBody<PurchaseSummary, PurchasesController>(
         provider: purchasesProvider,
-        itemBuilder: (context, item) => Card(
-          child: ListTile(
-            leading: const Icon(Icons.shopping_cart_checkout_outlined),
-            title: Text(item.reference),
-            subtitle: Text(
-              '${s.text('supplier')}: #${item.supplierId ?? '—'}\n${s.text('date')}: ${_date(item.date)}\n${s.text('status')}: ${item.paymentStatus}',
-            ),
-            isThreeLine: true,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${item.total} DZD'),
-                if (canDelete)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _deletePurchase(context, ref, item.id),
+        searchable: true,
+        emptyIcon: Icons.shopping_cart_checkout_outlined,
+        itemBuilder: (context, item) => AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.reference,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-              ],
-            ),
+                  StatusBadge(
+                    label: _paymentLabel(context, item.paymentStatus),
+                    tone: _paymentTone(item.paymentStatus),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('${s.text('supplier')}: #${item.supplierId ?? '—'}'),
+              Text(
+                _date(item.date),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const Divider(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppFormats.money(item.total),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  if (canDelete)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deletePurchase(context, ref, item.id),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -562,7 +682,7 @@ class PurchasesScreen extends ConsumerWidget {
                 }
               },
               icon: const Icon(Icons.add),
-              label: const Text('Nouvel achat'),
+              label: Text(s.text('newPurchase')),
             )
           : null,
     );
@@ -576,15 +696,15 @@ class PurchasesScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Confirmer la suppression ?'),
+        title: Text(CrudStrings.of(context).text('confirmDelete')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Annuler'),
+            child: Text(CrudStrings.of(context).text('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Supprimer'),
+            child: Text(CrudStrings.of(context).text('delete')),
           ),
         ],
       ),
@@ -618,50 +738,84 @@ class ExpensesScreen extends ConsumerWidget {
       path: '/expenses',
       body: PagedListBody<ExpenseSummary, ExpensesController>(
         provider: expensesProvider,
-        itemBuilder: (context, item) => Card(
-          child: ListTile(
-            leading: const Icon(Icons.account_balance_wallet_outlined),
-            title: Text(item.number),
-            subtitle: Text(
-              '${item.description}\n${s.text('date')}: ${_date(item.date)}\n${item.paymentMethod}',
-            ),
-            isThreeLine: true,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${item.amount} DZD'),
-                if (canChange || canDelete)
-                  PopupMenuButton<String>(
-                    onSelected: (action) async {
-                      if (action == 'edit') {
-                        final changed = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ExpenseFormScreen(expenseId: item.id),
-                          ),
-                        );
-                        if (changed == true) {
-                          ref.read(expensesProvider.notifier).refresh();
-                        }
-                      } else {
-                        await _deleteExpense(context, ref, item);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      if (canChange)
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text(crud.text('edit')),
-                        ),
-                      if (canDelete)
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text(crud.text('delete')),
-                        ),
-                    ],
+        searchable: true,
+        emptyIcon: Icons.account_balance_wallet_outlined,
+        itemBuilder: (context, item) => AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.number,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-              ],
-            ),
+                  Text(
+                    AppFormats.money(item.amount),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  if (canChange || canDelete)
+                    PopupMenuButton<String>(
+                      onSelected: (action) async {
+                        if (action == 'edit') {
+                          final changed = await Navigator.of(context)
+                              .push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ExpenseFormScreen(expenseId: item.id),
+                                ),
+                              );
+                          if (changed == true) {
+                            ref.read(expensesProvider.notifier).refresh();
+                          }
+                        } else {
+                          await _deleteExpense(context, ref, item);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        if (canChange)
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Text(crud.text('edit')),
+                          ),
+                        if (canDelete)
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text(crud.text('delete')),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
+              if (item.description.isNotEmpty)
+                Text(
+                  item.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined, size: 15),
+                  const SizedBox(width: 5),
+                  Text(
+                    _date(item.date),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      item.paymentMethod,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -741,12 +895,14 @@ class PaymentsScreen extends ConsumerWidget {
       path: '/payments',
       body: PagedListBody<PaymentSummary, PaymentsController>(
         provider: paymentsProvider,
+        searchable: true,
+        emptyIcon: Icons.payments_outlined,
         itemBuilder: (context, item) => _recordCard(
           context,
           icon: Icons.payments_outlined,
           title: item.reference,
           details: ['${s.text('date')}: ${_date(item.date)}', item.paymentType],
-          amount: '${item.amount} DZD',
+          amount: AppFormats.money(item.amount),
         ),
       ),
       floatingActionButton: canCreate
@@ -761,7 +917,7 @@ class PaymentsScreen extends ConsumerWidget {
                 }
               },
               icon: const Icon(Icons.add),
-              label: const Text('Nouveau paiement'),
+              label: Text(s.text('newPayment')),
             )
           : null,
     );

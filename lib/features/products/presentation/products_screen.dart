@@ -5,6 +5,8 @@ import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
+import 'package:app_alim_gen_mobile/core/utils/app_formats.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/features/products/domain/product_summary.dart';
 import 'package:app_alim_gen_mobile/features/products/presentation/product_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
@@ -42,50 +44,63 @@ class ProductsScreen extends ConsumerWidget {
       body: PagedListBody<ProductSummary, ProductsController>(
         provider: productsProvider,
         searchable: true,
-        itemBuilder: (context, product) => Card(
-          child: ListTile(
-            leading: CircleAvatar(child: Text('${product.quantity}')),
-            title: Text(product.name),
-            subtitle: Text(
-              '${strings.text('reference')}: ${product.reference}\n${strings.text('quantity')}: ${product.quantity}${product.retailPrice == null ? '' : '\n${strings.text('price')}: ${product.retailPrice} DZD'}',
-            ),
-            isThreeLine: product.retailPrice != null,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _StockStatus(status: product.stockStatus),
-                if (canChange || canDelete)
-                  PopupMenuButton<String>(
-                    onSelected: (action) async {
-                      if (action == 'edit') {
-                        final changed = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ProductFormScreen(productId: product.id),
-                          ),
-                        );
-                        if (changed == true) {
-                          ref.read(productsProvider.notifier).refresh();
-                        }
-                      } else if (action == 'delete') {
-                        await _deleteProduct(context, ref, product);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      if (canChange)
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text(crud.text('edit')),
-                        ),
-                      if (canDelete)
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text(crud.text('delete')),
-                        ),
-                    ],
+        emptyIcon: Icons.inventory_2_outlined,
+        itemBuilder: (context, product) => AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
+                  _StockStatus(status: product.stockStatus),
+                  if (canChange || canDelete)
+                    IconButton(
+                      tooltip: strings.text('more'),
+                      onPressed: () => _showActions(
+                        context,
+                        ref,
+                        product,
+                        canChange: canChange,
+                        canDelete: canDelete,
+                      ),
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                ],
+              ),
+              if (product.reference.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  product.reference,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
-            ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ProductMetric(
+                      label: strings.text('quantity'),
+                      value: '${product.quantity}',
+                    ),
+                  ),
+                  if (product.retailPrice != null)
+                    Expanded(
+                      child: _ProductMetric(
+                        label: strings.text('price'),
+                        value: AppFormats.money(product.retailPrice),
+                        alignEnd: true,
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -104,6 +119,62 @@ class ProductsScreen extends ConsumerWidget {
             )
           : null,
     );
+  }
+
+  Future<void> _showActions(
+    BuildContext context,
+    WidgetRef ref,
+    ProductSummary product, {
+    required bool canChange,
+    required bool canDelete,
+  }) async {
+    final crud = CrudStrings.of(context);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(
+                  product.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              if (canChange)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(crud.text('edit')),
+                  onTap: () => Navigator.pop(context, 'edit'),
+                ),
+              if (canDelete)
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: Text(crud.text('delete')),
+                  textColor: Theme.of(context).colorScheme.error,
+                  onTap: () => Navigator.pop(context, 'delete'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'edit') {
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => ProductFormScreen(productId: product.id),
+        ),
+      );
+      if (changed == true) ref.read(productsProvider.notifier).refresh();
+    } else if (action == 'delete') {
+      await _deleteProduct(context, ref, product);
+    }
   }
 
   Future<void> _deleteProduct(
@@ -153,17 +224,52 @@ class ProductsScreen extends ConsumerWidget {
   }
 }
 
+class _ProductMetric extends StatelessWidget {
+  const _ProductMetric({
+    required this.label,
+    required this.value,
+    this.alignEnd = false,
+  });
+  final String label;
+  final String value;
+  final bool alignEnd;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: alignEnd
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      Text(value, style: Theme.of(context).textTheme.titleMedium),
+    ],
+  );
+}
+
 class _StockStatus extends StatelessWidget {
   const _StockStatus({required this.status});
   final String status;
   @override
   Widget build(BuildContext context) {
-    final color = switch (status) {
-      'out_of_stock' => Colors.red,
-      'critical' => Colors.deepOrange,
-      'low' => Colors.amber.shade800,
-      _ => Colors.green,
+    final tone = switch (status) {
+      'out_of_stock' => StatusTone.danger,
+      'critical' || 'low' => StatusTone.warning,
+      _ => StatusTone.success,
     };
-    return Icon(Icons.circle, size: 12, color: color);
+    final key = switch (status) {
+      'out_of_stock' => 'stockOut',
+      'critical' => 'stockCritical',
+      'low' => 'stockLow',
+      _ => 'stockOk',
+    };
+    return StatusBadge(
+      label: AppLocalizations.of(context).text(key),
+      tone: tone,
+      icon: Icons.circle,
+    );
   }
 }

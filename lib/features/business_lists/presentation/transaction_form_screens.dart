@@ -6,6 +6,7 @@ import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.d
 import 'package:app_alim_gen_mobile/features/products/presentation/product_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
+import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -625,7 +626,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                         }
                       },
                 icon: const Icon(Icons.add_box_outlined),
-                label: const Text('Nouveau produit'),
+                label: Text(CrudStrings.of(context).text('newProduct')),
               ),
             ),
           ..._lines.asMap().entries.map((entry) {

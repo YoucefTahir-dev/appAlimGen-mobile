@@ -1,6 +1,8 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/features/products/domain/product_summary.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
+import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
@@ -134,7 +136,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d’enregistrer.')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).text('apiError')),
+          ),
         );
       }
     } finally {
@@ -155,7 +159,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       title: Text(_editing ? _t('editProduct') : _t('newProduct')),
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const LoadingSkeleton(rows: 6)
         : _loadError != null
         ? Center(
             child: FilledButton(
@@ -179,12 +183,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     '${_t('reference')} : ${_initial!.reference}\n${_t('barcode')} : ${_initial!.barcode}',
                   ),
                 if (_initial != null) const SizedBox(height: 16),
+                FormSectionHeader(title: _t('sectionInformation')),
                 TextFormField(
                   controller: _name,
                   decoration: _decoration(_t('name'), 'name'),
                   validator: _required,
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionClassification')),
                 _ReferenceDropdown(
                   label: _t('category'),
                   value: _category,
@@ -209,6 +215,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   onChanged: (v) => setState(() => _unit = v),
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionPricing')),
                 TextFormField(
                   controller: _purchase,
                   decoration: _decoration(
@@ -254,6 +261,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   validator: _decimal,
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionStock')),
                 TextFormField(
                   controller: _quantity,
                   decoration: _decoration(_t('quantity'), 'quantity'),
@@ -268,6 +276,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   validator: _integer,
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionAdditional')),
                 TextFormField(
                   controller: _description,
                   decoration: _decoration(_t('description'), 'description'),

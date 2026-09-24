@@ -5,10 +5,12 @@ import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
+import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/domain/loading_order_summary.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/presentation/loading_order_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
+import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,6 +34,7 @@ class LoadingOrdersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = AppLocalizations.of(context);
+    final crud = CrudStrings.of(context);
     final user = ref.watch(authControllerProvider).user;
     final canAdd = user?.can(AppPermissions.addLoadingOrder) ?? false;
     final canChange = user?.can(AppPermissions.changeLoadingOrder) ?? false;
@@ -44,13 +47,32 @@ class LoadingOrdersScreen extends ConsumerWidget {
       body: PagedListBody<LoadingOrderSummary, LoadingOrdersController>(
         provider: loadingOrdersProvider,
         searchable: true,
-        itemBuilder: (_, order) => Card(
+        emptyIcon: Icons.local_shipping_outlined,
+        itemBuilder: (_, order) => AppCard(
+          padding: EdgeInsets.zero,
           child: ExpansionTile(
-            leading: const Icon(Icons.local_shipping),
-            title: Text(order.number),
-            subtitle: Text(
-              '${s.text('operator')}: ${order.operatorName}\n${s.text('status')}: ${order.status}',
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              child: Icon(
+                Icons.local_shipping_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    order.number,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                StatusBadge(
+                  label: s.text('order_${order.status}'),
+                  tone: _tone(order.status),
+                ),
+              ],
+            ),
+            subtitle: Text('${s.text('operator')}: ${order.operatorName}'),
             children: [
               ...order.lines.map(
                 (line) => ListTile(
@@ -80,18 +102,18 @@ class LoadingOrdersScreen extends ConsumerWidget {
                           }
                         },
                         icon: const Icon(Icons.edit),
-                        label: const Text('Modifier'),
+                        label: Text(crud.text('edit')),
                       ),
                     if (canValidate)
                       FilledButton(
                         onPressed: () =>
                             _action(context, ref, order, 'validate'),
-                        child: const Text('Valider'),
+                        child: Text(s.text('validate')),
                       ),
                     if (canDelete)
                       OutlinedButton(
                         onPressed: () => _action(context, ref, order, 'cancel'),
-                        child: const Text('Annuler'),
+                        child: Text(crud.text('cancel')),
                       ),
                   ],
                 ),
@@ -100,7 +122,7 @@ class LoadingOrdersScreen extends ConsumerWidget {
                   canClose)
                 FilledButton(
                   onPressed: () => _action(context, ref, order, 'close'),
-                  child: const Text('Clôturer'),
+                  child: Text(s.text('close')),
                 ),
             ],
           ),
@@ -120,7 +142,7 @@ class LoadingOrdersScreen extends ConsumerWidget {
                 }
               },
               icon: const Icon(Icons.add),
-              label: const Text('Nouveau bon'),
+              label: Text(s.text('newLoadingOrder')),
             )
           : null,
     );
@@ -135,15 +157,15 @@ class LoadingOrdersScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Confirmer : $action ?'),
+        title: Text(AppLocalizations.of(context).text('confirmAction')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Annuler'),
+            child: Text(CrudStrings.of(context).text('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Confirmer'),
+            child: Text(AppLocalizations.of(context).text('confirm')),
           ),
         ],
       ),
@@ -165,4 +187,11 @@ class LoadingOrdersScreen extends ConsumerWidget {
       }
     }
   }
+
+  StatusTone _tone(String status) => switch (status) {
+    'validated' || 'in_progress' => StatusTone.warning,
+    'closed' => StatusTone.success,
+    'cancelled' || 'canceled' => StatusTone.danger,
+    _ => StatusTone.neutral,
+  };
 }
