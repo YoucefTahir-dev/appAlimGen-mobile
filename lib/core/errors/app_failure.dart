@@ -3,6 +3,7 @@ enum FailureKind {
   authentication,
   permission,
   notFound,
+  methodNotAllowed,
   conflict,
   rateLimit,
   network,

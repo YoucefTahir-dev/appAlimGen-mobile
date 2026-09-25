@@ -31,7 +31,7 @@ class SafeApiLogger extends Interceptor {
       debugPrint(
         '[API] ${err.requestOptions.method} ${err.requestOptions.uri.path} '
         '${err.response?.statusCode ?? err.type.name} '
-        '${_duration(err.requestOptions)}ms',
+        '${_duration(err.requestOptions)}ms body=${_safeBody(err.response?.data)}',
       );
     }
     handler.next(err);
@@ -41,5 +41,25 @@ class SafeApiLogger extends Interceptor {
     final startedAt = options.extra[_startedAtKey] as int?;
     if (startedAt == null) return 0;
     return ((DateTime.now().microsecondsSinceEpoch - startedAt) / 1000).round();
+  }
+
+  String _safeBody(Object? value) {
+    Object? redact(Object? item) {
+      if (item is Map) {
+        return item.map((key, child) {
+          final normalized = key.toString().toLowerCase();
+          final sensitive =
+              normalized.contains('token') ||
+              normalized.contains('password') ||
+              normalized.contains('authorization');
+          return MapEntry(key, sensitive ? '[REDACTED]' : redact(child));
+        });
+      }
+      if (item is List) return item.map(redact).toList(growable: false);
+      return item;
+    }
+
+    final text = redact(value).toString();
+    return text.length <= 1000 ? text : '${text.substring(0, 1000)}…';
   }
 }

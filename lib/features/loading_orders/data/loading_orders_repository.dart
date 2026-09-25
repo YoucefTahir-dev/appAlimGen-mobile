@@ -83,7 +83,16 @@ class LoadingOrdersRepository {
     }
   }
 
-  Future<LoadingOrderSummary> action(
+  Future<LoadingOrderSummary> validateLoadingOrder(int id, String key) =>
+      _postAction(id, 'validate', key: key);
+
+  Future<LoadingOrderSummary> cancelLoadingOrder(int id) =>
+      _postAction(id, 'cancel');
+
+  Future<LoadingOrderSummary> closeLoadingOrder(int id, String key) =>
+      _postAction(id, 'close', key: key);
+
+  Future<LoadingOrderSummary> _postAction(
     int id,
     String action, {
     String? key,

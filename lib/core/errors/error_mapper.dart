@@ -41,6 +41,7 @@ class ErrorMapper {
         401 => FailureKind.authentication,
         403 => FailureKind.permission,
         404 => FailureKind.notFound,
+        405 => FailureKind.methodNotAllowed,
         409 => FailureKind.conflict,
         429 => FailureKind.rateLimit,
         final value when value != null && value >= 500 => FailureKind.server,
@@ -63,6 +64,7 @@ class ErrorMapper {
     401 => 'AUTHENTICATION_REQUIRED',
     403 => 'PERMISSION_DENIED',
     404 => 'NOT_FOUND',
+    405 => 'METHOD_NOT_ALLOWED',
     409 => 'CONFLICT',
     429 => 'RATE_LIMITED',
     _ => 'API_ERROR',
@@ -70,6 +72,7 @@ class ErrorMapper {
   String _defaultMessage(int? status) => switch (status) {
     401 => 'Votre session a expiré.',
     403 => 'Vous n’avez pas la permission nécessaire.',
+    405 => 'Cette action n’est pas disponible sur cette version du serveur.',
     409 => 'Cette opération entre en conflit avec l’état actuel des données.',
     429 => 'Trop de demandes. Réessayez plus tard.',
     final value when value != null && value >= 500 =>

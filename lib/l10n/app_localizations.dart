@@ -68,6 +68,16 @@ class AppLocalizations {
       'close': 'Clôturer',
       'confirm': 'Confirmer',
       'confirmAction': 'Confirmer cette action ?',
+      'cancelLoadingOrder': 'Annuler le bon',
+      'confirmValidateLoadingOrder':
+          'Valider ce bon transférera le stock du dépôt vers l’opérateur.',
+      'confirmCancelLoadingOrder':
+          'Annuler définitivement ce bon de chargement brouillon ?',
+      'confirmCloseLoadingOrder':
+          'Clôturer ce bon et retourner le stock invendu au dépôt ?',
+      'loadingOrderValidated': 'Bon de chargement validé.',
+      'loadingOrderCancelled': 'Bon de chargement annulé.',
+      'loadingOrderClosed': 'Bon de chargement clôturé.',
       'order_draft': 'Brouillon',
       'order_validated': 'Validé',
       'order_in_progress': 'En cours',
@@ -187,6 +197,15 @@ class AppLocalizations {
       'close': 'إغلاق',
       'confirm': 'تأكيد',
       'confirmAction': 'تأكيد هذا الإجراء؟',
+      'cancelLoadingOrder': 'إلغاء سند التحميل',
+      'confirmValidateLoadingOrder':
+          'سيؤدي تأكيد هذا السند إلى نقل المخزون من المستودع إلى المشغل.',
+      'confirmCancelLoadingOrder': 'هل تريد إلغاء مسودة سند التحميل نهائياً؟',
+      'confirmCloseLoadingOrder':
+          'هل تريد إغلاق السند وإعادة المخزون غير المباع إلى المستودع؟',
+      'loadingOrderValidated': 'تم تأكيد سند التحميل.',
+      'loadingOrderCancelled': 'تم إلغاء سند التحميل.',
+      'loadingOrderClosed': 'تم إغلاق سند التحميل.',
       'order_draft': 'مسودة',
       'order_validated': 'مؤكد',
       'order_in_progress': 'قيد التنفيذ',
@@ -305,6 +324,16 @@ class AppLocalizations {
       'close': 'Close',
       'confirm': 'Confirm',
       'confirmAction': 'Confirm this action?',
+      'cancelLoadingOrder': 'Cancel order',
+      'confirmValidateLoadingOrder':
+          'Validating this order transfers stock from the warehouse to the operator.',
+      'confirmCancelLoadingOrder':
+          'Permanently cancel this draft loading order?',
+      'confirmCloseLoadingOrder':
+          'Close this order and return unsold stock to the warehouse?',
+      'loadingOrderValidated': 'Loading order validated.',
+      'loadingOrderCancelled': 'Loading order cancelled.',
+      'loadingOrderClosed': 'Loading order closed.',
       'order_draft': 'Draft',
       'order_validated': 'Validated',
       'order_in_progress': 'In progress',

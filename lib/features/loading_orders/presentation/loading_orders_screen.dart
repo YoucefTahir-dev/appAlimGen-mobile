@@ -9,10 +9,80 @@ import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/domain/loading_order_summary.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/presentation/loading_order_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/stock/presentation/stock_screens.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+enum LoadingOrderAction { validate, cancel, close }
+
+class LoadingOrderActionState {
+  const LoadingOrderActionState({this.orderId, this.action});
+  final int? orderId;
+  final LoadingOrderAction? action;
+  bool get isLoading => orderId != null;
+  bool isRunning(int id, LoadingOrderAction candidate) =>
+      orderId == id && action == candidate;
+}
+
+class LoadingOrderActionController extends Notifier<LoadingOrderActionState> {
+  @override
+  LoadingOrderActionState build() => const LoadingOrderActionState();
+
+  Future<LoadingOrderSummary> validateOrder(int id) => _run(
+    id,
+    LoadingOrderAction.validate,
+    () => ref
+        .read(loadingOrdersRepositoryProvider)
+        .validateLoadingOrder(
+          id,
+          ref.read(loadingOrdersRepositoryProvider).newKey(),
+        ),
+  );
+
+  Future<LoadingOrderSummary> cancelOrder(int id) => _run(
+    id,
+    LoadingOrderAction.cancel,
+    () => ref.read(loadingOrdersRepositoryProvider).cancelLoadingOrder(id),
+  );
+
+  Future<LoadingOrderSummary> closeOrder(int id) => _run(
+    id,
+    LoadingOrderAction.close,
+    () => ref
+        .read(loadingOrdersRepositoryProvider)
+        .closeLoadingOrder(
+          id,
+          ref.read(loadingOrdersRepositoryProvider).newKey(),
+        ),
+  );
+
+  Future<LoadingOrderSummary> _run(
+    int id,
+    LoadingOrderAction action,
+    Future<LoadingOrderSummary> Function() request,
+  ) async {
+    if (state.isLoading) {
+      throw const AppFailure(
+        kind: FailureKind.conflict,
+        code: 'ACTION_IN_PROGRESS',
+        message: 'Une action est déjà en cours.',
+      );
+    }
+    state = LoadingOrderActionState(orderId: id, action: action);
+    try {
+      return await request();
+    } finally {
+      state = const LoadingOrderActionState();
+    }
+  }
+}
+
+final loadingOrderActionProvider =
+    NotifierProvider<LoadingOrderActionController, LoadingOrderActionState>(
+      LoadingOrderActionController.new,
+    );
 
 class LoadingOrdersController extends PagedListController<LoadingOrderSummary> {
   @override
@@ -21,6 +91,14 @@ class LoadingOrdersController extends PagedListController<LoadingOrderSummary> {
     required String query,
   }) =>
       ref.read(loadingOrdersRepositoryProvider).fetch(page: page, query: query);
+
+  void replaceItem(LoadingOrderSummary replacement) {
+    state = state.copyWith(
+      items: state.items
+          .map((item) => item.id == replacement.id ? replacement : item)
+          .toList(growable: false),
+    );
+  }
 }
 
 final loadingOrdersProvider =
@@ -41,6 +119,7 @@ class LoadingOrdersScreen extends ConsumerWidget {
     final canDelete = user?.can(AppPermissions.deleteLoadingOrder) ?? false;
     final canValidate = user?.can(AppPermissions.validateLoadingOrder) ?? false;
     final canClose = user?.can(AppPermissions.closeLoadingOrder) ?? false;
+    final actionState = ref.watch(loadingOrderActionProvider);
     return ModuleScaffold(
       title: s.text('loadingOrders'),
       path: '/loading-orders',
@@ -106,14 +185,39 @@ class LoadingOrdersScreen extends ConsumerWidget {
                       ),
                     if (canValidate)
                       FilledButton(
-                        onPressed: () =>
-                            _action(context, ref, order, 'validate'),
-                        child: Text(s.text('validate')),
+                        onPressed: actionState.isLoading
+                            ? null
+                            : () => _action(
+                                context,
+                                ref,
+                                order,
+                                LoadingOrderAction.validate,
+                              ),
+                        child: _actionLabel(
+                          actionState.isRunning(
+                            order.id,
+                            LoadingOrderAction.validate,
+                          ),
+                          s.text('validate'),
+                        ),
                       ),
                     if (canDelete)
                       OutlinedButton(
-                        onPressed: () => _action(context, ref, order, 'cancel'),
-                        child: Text(crud.text('cancel')),
+                        onPressed: actionState.isLoading
+                            ? null
+                            : () => _action(
+                                context,
+                                ref,
+                                order,
+                                LoadingOrderAction.cancel,
+                              ),
+                        child: _actionLabel(
+                          actionState.isRunning(
+                            order.id,
+                            LoadingOrderAction.cancel,
+                          ),
+                          s.text('cancelLoadingOrder'),
+                        ),
                       ),
                   ],
                 ),
@@ -121,8 +225,18 @@ class LoadingOrdersScreen extends ConsumerWidget {
                       order.status == 'in_progress') &&
                   canClose)
                 FilledButton(
-                  onPressed: () => _action(context, ref, order, 'close'),
-                  child: Text(s.text('close')),
+                  onPressed: actionState.isLoading
+                      ? null
+                      : () => _action(
+                          context,
+                          ref,
+                          order,
+                          LoadingOrderAction.close,
+                        ),
+                  child: _actionLabel(
+                    actionState.isRunning(order.id, LoadingOrderAction.close),
+                    s.text('close'),
+                  ),
                 ),
             ],
           ),
@@ -152,12 +266,20 @@ class LoadingOrdersScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     LoadingOrderSummary order,
-    String action,
+    LoadingOrderAction action,
   ) async {
+    final s = AppLocalizations.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text(AppLocalizations.of(context).text('confirmAction')),
+        title: Text(s.text('confirmAction')),
+        content: Text(
+          s.text(switch (action) {
+            LoadingOrderAction.validate => 'confirmValidateLoadingOrder',
+            LoadingOrderAction.cancel => 'confirmCancelLoadingOrder',
+            LoadingOrderAction.close => 'confirmCloseLoadingOrder',
+          }),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
@@ -172,13 +294,28 @@ class LoadingOrdersScreen extends ConsumerWidget {
     );
     if (ok != true) return;
     try {
-      final key = (action == 'validate' || action == 'close')
-          ? ref.read(loadingOrdersRepositoryProvider).newKey()
-          : null;
-      await ref
-          .read(loadingOrdersRepositoryProvider)
-          .action(order.id, action, key: key);
-      await ref.read(loadingOrdersProvider.notifier).refresh();
+      final controller = ref.read(loadingOrderActionProvider.notifier);
+      final updated = await switch (action) {
+        LoadingOrderAction.validate => controller.validateOrder(order.id),
+        LoadingOrderAction.cancel => controller.cancelOrder(order.id),
+        LoadingOrderAction.close => controller.closeOrder(order.id),
+      };
+      ref.read(loadingOrdersProvider.notifier).replaceItem(updated);
+      ref.invalidate(stockProvider);
+      ref.invalidate(operatorStockProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              s.text(switch (action) {
+                LoadingOrderAction.validate => 'loadingOrderValidated',
+                LoadingOrderAction.cancel => 'loadingOrderCancelled',
+                LoadingOrderAction.close => 'loadingOrderClosed',
+              }),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -187,6 +324,21 @@ class LoadingOrdersScreen extends ConsumerWidget {
       }
     }
   }
+
+  Widget _actionLabel(bool loading, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (loading) ...[
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 8),
+      ],
+      Text(label),
+    ],
+  );
 
   StatusTone _tone(String status) => switch (status) {
     'validated' || 'in_progress' => StatusTone.warning,
