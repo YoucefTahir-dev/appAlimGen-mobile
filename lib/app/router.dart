@@ -45,11 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (_, state) {
       final atLogin = state.matchedLocation == '/login';
-      if (auth.status == AuthStatus.restoring) {
+      if (auth.status == AuthStatus.initializing) {
         return state.matchedLocation == '/splash' ? null : '/splash';
       }
-      if (auth.status == AuthStatus.unauthenticated ||
-          auth.status == AuthStatus.submitting) {
+      if (auth.status == AuthStatus.unauthenticated) {
         return atLogin ? null : '/login';
       }
       if (auth.status == AuthStatus.authenticated) {

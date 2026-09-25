@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_alim_gen_mobile/core/network/api_envelope.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
@@ -24,8 +25,12 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (_isPublicPath(options.path)) {
+      handler.next(options);
+      return;
+    }
     final tokens = await _storage.read();
-    if (tokens != null && !_isPublicAuthPath(options.path)) {
+    if (tokens != null) {
       options.headers['Authorization'] = 'Bearer ${tokens.access}';
     }
     handler.next(options);
@@ -36,7 +41,7 @@ class AuthInterceptor extends Interceptor {
     final request = err.requestOptions;
     if (err.response?.statusCode != 401 ||
         request.extra[_retriedKey] == true ||
-        _isPublicAuthPath(request.path)) {
+        _isPublicPath(request.path)) {
       handler.next(err);
       return;
     }
@@ -46,7 +51,15 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
-    final access = await _singleFlightRefresh();
+    String? access;
+    try {
+      access = await _singleFlightRefresh();
+    } on DioException catch (refreshError) {
+      // Un timeout de refresh est une panne réseau, pas une révocation. Il est
+      // remonté au bootstrap sans supprimer les jetons locaux.
+      handler.next(refreshError);
+      return;
+    }
     if (access == null) {
       handler.next(err);
       return;
@@ -77,6 +90,7 @@ class AuthInterceptor extends Interceptor {
       return null;
     }
     try {
+      _log('TOKEN_REFRESH');
       final response = await _refreshDio.post<dynamic>(
         'auth/refresh/',
         data: {'refresh': stored.refresh},
@@ -96,7 +110,14 @@ class AuthInterceptor extends Interceptor {
         ),
       );
       return access;
-    } catch (_) {
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await _expireSession();
+        return null;
+      }
+      rethrow;
+    } on FormatException {
       await _expireSession();
       return null;
     }
@@ -107,8 +128,16 @@ class AuthInterceptor extends Interceptor {
     _onSessionExpired();
   }
 
-  bool _isPublicAuthPath(String path) =>
-      path.endsWith('auth/login/') || path.endsWith('auth/refresh/');
+  bool _isPublicPath(String path) =>
+      path.endsWith('auth/login/') ||
+      path.endsWith('auth/refresh/') ||
+      path.endsWith('healthz/') ||
+      path.endsWith('readyz/');
+
+  void _log(String event) {
+    if (kDebugMode) debugPrint('[AUTH] $event');
+  }
+
   String? _apiErrorCode(dynamic body) {
     if (body is Map && body['error'] is Map) {
       return (body['error'] as Map)['code']?.toString();

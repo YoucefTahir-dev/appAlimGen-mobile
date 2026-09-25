@@ -5,6 +5,7 @@ import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/session_repository.dart';
 import 'package:app_alim_gen_mobile/features/auth/domain/auth_models.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthRepository {
   AuthRepository({
@@ -48,6 +49,7 @@ class AuthRepository {
 
   Future<UserProfile> me() async {
     try {
+      if (kDebugMode) debugPrint('[AUTH] AUTH_ME');
       final response = await _dio.get<dynamic>('auth/me/');
       return UserProfile.fromJson(ApiEnvelope.object(response.data));
     } catch (error) {

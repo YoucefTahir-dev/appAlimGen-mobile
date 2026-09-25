@@ -153,6 +153,58 @@ void main() {
     events.dispose();
   });
 
+  test(
+    'un timeout de refresh conserve les jetons et ne publie pas expiration',
+    () async {
+      final storage = MemoryTokenStorage()
+        ..value = const StoredTokens(access: 'expired', refresh: 'still-valid');
+      final events = SessionEvents();
+      var expired = false;
+      events.expired.listen((_) => expired = true);
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'));
+      final refreshDio = Dio(
+        BaseOptions(baseUrl: 'https://example.test/api/v1/'),
+      );
+      var refreshCalls = 0;
+      dio.httpClientAdapter = _Adapter(
+        (_) async => _json(401, {
+          'success': false,
+          'error': {'code': 'AUTHENTICATION_REQUIRED', 'message': 'Expired'},
+        }),
+      );
+      refreshDio.httpClientAdapter = _Adapter((options) async {
+        refreshCalls++;
+        throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.receiveTimeout,
+        );
+      });
+      ApiClient(
+        storage: storage,
+        sessionEvents: events,
+        dio: dio,
+        refreshDio: refreshDio,
+      );
+
+      await expectLater(
+        dio.get<dynamic>('auth/me/'),
+        throwsA(
+          isA<DioException>().having(
+            (error) => error.type,
+            'type',
+            DioExceptionType.receiveTimeout,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(refreshCalls, 1);
+      expect(expired, isFalse);
+      expect((await storage.read())?.refresh, 'still-valid');
+      events.dispose();
+    },
+  );
+
   test('ajoute Bearer aux routes protégées mais jamais au login', () async {
     final storage = MemoryTokenStorage()
       ..value = const StoredTokens(access: 'secret-access', refresh: 'refresh');

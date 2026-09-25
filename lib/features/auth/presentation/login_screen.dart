@@ -1,5 +1,5 @@
 import 'package:app_alim_gen_mobile/core/widgets/language_menu.dart';
-import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/login_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +17,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscure = true;
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) ref.read(loginControllerProvider.notifier).reset();
+    });
+  }
+
+  @override
   void dispose() {
     _username.dispose();
     _password.dispose();
@@ -26,8 +34,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    final auth = ref.watch(authControllerProvider);
-    final busy = auth.status == AuthStatus.submitting;
+    final login = ref.watch(loginControllerProvider);
+    final busy = login.isSubmitting;
     return Scaffold(
       appBar: AppBar(actions: const [LanguageMenu()]),
       body: SafeArea(
@@ -91,13 +99,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               : null,
                           onFieldSubmitted: busy ? null : (_) => _submit(),
                         ),
-                        if (auth.failure != null)
+                        if (login.failure != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 16),
                             child: Semantics(
                               liveRegion: true,
                               child: Text(
-                                auth.failure!.message,
+                                login.failure!.message,
                                 key: const Key('login-error'),
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.error,
@@ -136,7 +144,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _submit() {
     if (_formKey.currentState?.validate() != true) return;
     ref
-        .read(authControllerProvider.notifier)
-        .login(_username.text, _password.text);
+        .read(loginControllerProvider.notifier)
+        .submit(_username.text, _password.text);
   }
 }
