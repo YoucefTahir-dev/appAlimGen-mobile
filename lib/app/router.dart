@@ -5,6 +5,7 @@ import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.d
 import 'package:app_alim_gen_mobile/features/auth/presentation/login_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
 import 'package:app_alim_gen_mobile/features/clients/presentation/clients_screen.dart';
+import 'package:app_alim_gen_mobile/features/company_settings/presentation/company_settings_screen.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/presentation/loading_orders_screen.dart';
 import 'package:app_alim_gen_mobile/features/printers/presentation/printers_screen.dart';
@@ -24,6 +25,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/dashboard', builder: (_, _) => const DashboardScreen()),
       GoRoute(path: '/products', builder: (_, _) => const ProductsScreen()),
       GoRoute(path: '/clients', builder: (_, _) => const ClientsScreen()),
+      GoRoute(
+        path: '/company-settings',
+        builder: (_, _) => const CompanySettingsScreen(),
+      ),
       GoRoute(path: '/suppliers', builder: (_, _) => const SuppliersScreen()),
       GoRoute(path: '/sales', builder: (_, _) => const SalesScreen()),
       GoRoute(path: '/purchases', builder: (_, _) => const PurchasesScreen()),

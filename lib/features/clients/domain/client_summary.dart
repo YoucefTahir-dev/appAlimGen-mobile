@@ -30,6 +30,9 @@ class ClientDetails {
     required this.customerType,
     required this.email,
     required this.taxNumber,
+    this.nis = '',
+    this.articleNumber = '',
+    this.tradeRegisterNumber = '',
     required this.balance,
     required this.notes,
     this.latitude,
@@ -48,6 +51,7 @@ class ClientDetails {
       taxNumber,
       balance,
       notes;
+  final String nis, articleNumber, tradeRegisterNumber;
   final double? latitude, longitude, locationAccuracy;
   final String? formattedAddress, placeId;
 
@@ -60,6 +64,9 @@ class ClientDetails {
     customerType: json['customer_type']?.toString() ?? 'RETAIL',
     email: json['email']?.toString() ?? '',
     taxNumber: json['tax_number']?.toString() ?? '',
+    nis: json['nis']?.toString() ?? '',
+    articleNumber: json['article_number']?.toString() ?? '',
+    tradeRegisterNumber: json['trade_register_number']?.toString() ?? '',
     balance: json['balance']?.toString() ?? '0.00',
     notes: json['notes']?.toString() ?? '',
     latitude: (json['latitude'] as num?)?.toDouble(),
@@ -79,6 +86,9 @@ class ClientWriteRequest {
     required this.customerType,
     required this.email,
     required this.taxNumber,
+    this.nis = '',
+    this.articleNumber = '',
+    this.tradeRegisterNumber = '',
     required this.balance,
     required this.notes,
     this.latitude,
@@ -96,6 +106,7 @@ class ClientWriteRequest {
       taxNumber,
       balance,
       notes;
+  final String nis, articleNumber, tradeRegisterNumber;
   final double? latitude, longitude, locationAccuracy;
   final String? formattedAddress, placeId;
   Map<String, dynamic> toJson() => {
@@ -106,6 +117,9 @@ class ClientWriteRequest {
     'customer_type': customerType,
     'email': email,
     'tax_number': taxNumber,
+    'nis': nis,
+    'article_number': articleNumber,
+    'trade_register_number': tradeRegisterNumber,
     'balance': balance,
     'notes': notes,
     'latitude': latitude,

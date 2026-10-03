@@ -111,6 +111,13 @@ final appModules = <AppModule>[
     allowed: (p) => p.has(AppPermissions.printers),
   ),
   AppModule(
+    labelKey: 'companySettings',
+    path: '/company-settings',
+    icon: Icons.business_outlined,
+    section: NavigationSection.management,
+    allowed: (p) => p.has(AppPermissions.settings),
+  ),
+  AppModule(
     labelKey: 'profile',
     path: '/profile',
     icon: Icons.person_outline,

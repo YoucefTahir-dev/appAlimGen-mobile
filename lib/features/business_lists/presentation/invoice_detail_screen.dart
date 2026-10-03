@@ -336,6 +336,13 @@ class _ClientCard extends StatelessWidget {
               '${t('phone')} : ${sale.client.phone}',
             if (sale.client.address.isNotEmpty) sale.client.address,
             if (sale.client.customerType.isNotEmpty) sale.client.customerType,
+            if (sale.client.taxNumber.isNotEmpty)
+              'NIF : ${sale.client.taxNumber}',
+            if (sale.client.nis.isNotEmpty) 'NIS : ${sale.client.nis}',
+            if (sale.client.tradeRegisterNumber.isNotEmpty)
+              'RC : ${sale.client.tradeRegisterNumber}',
+            if (sale.client.articleNumber.isNotEmpty)
+              'AI : ${sale.client.articleNumber}',
           ].join('\n'),
         ),
       ),

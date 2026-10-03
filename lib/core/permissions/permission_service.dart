@@ -43,6 +43,7 @@ class AppPermissions {
   static const deletePrinter = 'printing.delete_printerprofile';
   static const testPrinter = 'printing.test_printerprofile';
   static const settings = 'core.view_companysettings';
+  static const changeSettings = 'core.change_companysettings';
 }
 
 class PermissionService {
@@ -73,6 +74,7 @@ class PermissionService {
     '/payments' => canViewPayments,
     '/expenses' => has(AppPermissions.expenses),
     '/printers' => has(AppPermissions.printers),
+    '/company-settings' => has(AppPermissions.settings),
     '/profile' || '/forbidden' => true,
     _ => false,
   };

@@ -1,5 +1,6 @@
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/clients/domain/client_summary.dart';
+import 'package:app_alim_gen_mobile/features/company_settings/domain/company_settings.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/domain/loading_order_summary.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
 import 'package:app_alim_gen_mobile/features/products/domain/product_summary.dart';
@@ -114,4 +115,52 @@ void main() {
       expect(printer.paperWidth, 58);
     },
   );
+
+  test('les informations légales client et entreprise suivent l’API', () {
+    final client = ClientDetails.fromJson({
+      'id': 2,
+      'name': 'Client légal',
+      'phone': '',
+      'address': '',
+      'wilaya': '',
+      'customer_type': 'RETAIL',
+      'email': '',
+      'tax_number': 'NIF-C',
+      'nis': 'NIS-C',
+      'article_number': 'AI-C',
+      'trade_register_number': 'RC-C',
+      'balance': '0.00',
+      'notes': '',
+    });
+    final request = ClientWriteRequest(
+      name: client.name,
+      phone: '',
+      address: '',
+      wilaya: '',
+      customerType: 'RETAIL',
+      email: '',
+      taxNumber: client.taxNumber,
+      nis: client.nis,
+      articleNumber: client.articleNumber,
+      tradeRegisterNumber: client.tradeRegisterNumber,
+      balance: '0.00',
+      notes: '',
+    );
+    final company = CompanySettings.fromJson({
+      'company_name': 'EL AMINE',
+      'address': 'Alger',
+      'phone': '0550',
+      'email': 'contact@example.dz',
+      'tax_number': 'NIF-E',
+      'nis': 'NIS-E',
+      'rc_number': 'RC-E',
+      'article_number': 'AI-E',
+      'tax_rate': '19.00',
+    });
+
+    expect(request.toJson()['trade_register_number'], 'RC-C');
+    expect(request.toJson()['article_number'], 'AI-C');
+    expect(company.toJson()['nis'], 'NIS-E');
+    expect(company.toJson()['tax_rate'], '19.00');
+  });
 }

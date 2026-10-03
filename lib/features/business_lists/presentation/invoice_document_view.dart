@@ -1,4 +1,5 @@
 import 'package:app_alim_gen_mobile/features/business_lists/domain/invoice_document.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
 import 'package:flutter/material.dart';
 
@@ -79,7 +80,7 @@ class _ThermalInvoice extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          t('companyName'),
+          data.company.name.isEmpty ? t('companyName') : data.company.name,
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: compact ? 14 : 17,
@@ -95,6 +96,16 @@ class _ThermalInvoice extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        if (data.company.address.isNotEmpty)
+          Text(data.company.address, textAlign: TextAlign.center),
+        if (data.company.phone.isNotEmpty)
+          Text(data.company.phone, textAlign: TextAlign.center),
+        if (_companyLegal(data.company).isNotEmpty)
+          Text(
+            _companyLegal(data.company).join(' · '),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 9),
+          ),
         const _ReceiptRule(),
         Text(
           '${t('invoice')}\n${data.number}',
@@ -113,6 +124,11 @@ class _ThermalInvoice extends StatelessWidget {
             label: t('phone'),
             value: data.client.phone,
             compact: compact,
+          ),
+        if (_clientLegal(data.client).isNotEmpty)
+          Text(
+            _clientLegal(data.client).join(' · '),
+            style: TextStyle(fontSize: compact ? 8 : 10),
           ),
         const _ReceiptRule(),
         if (compact)
@@ -247,7 +263,9 @@ class _A4Invoice extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    t('companyName'),
+                    data.company.name.isEmpty
+                        ? t('companyName')
+                        : data.company.name,
                     style: TextStyle(
                       fontSize: 25,
                       fontWeight: FontWeight.w800,
@@ -262,6 +280,18 @@ class _A4Invoice extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  if (data.company.address.isNotEmpty)
+                    Text(data.company.address),
+                  if (data.company.phone.isNotEmpty ||
+                      data.company.email.isNotEmpty)
+                    Text(
+                      [
+                        data.company.phone,
+                        data.company.email,
+                      ].where((value) => value.isNotEmpty).join(' · '),
+                    ),
+                  if (_companyLegal(data.company).isNotEmpty)
+                    Text(_companyLegal(data.company).join(' · ')),
                 ],
               ),
             ),
@@ -314,6 +344,8 @@ class _A4Invoice extends StatelessWidget {
                 Text('${t('phone')} : ${data.client.phone}'),
               if (data.client.customerType.isNotEmpty)
                 Text(data.client.customerType),
+              if (_clientLegal(data.client).isNotEmpty)
+                Text(_clientLegal(data.client).join(' · ')),
             ],
           ),
         ),
@@ -491,3 +523,18 @@ String _displayDate(String value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${two(parsed.day)}/${two(parsed.month)}/${parsed.year} ${two(parsed.hour)}:${two(parsed.minute)}';
 }
+
+List<String> _companyLegal(SaleCompanyDetails company) => [
+  if (company.taxNumber.isNotEmpty) 'NIF : ${company.taxNumber}',
+  if (company.nis.isNotEmpty) 'NIS : ${company.nis}',
+  if (company.rcNumber.isNotEmpty) 'RC : ${company.rcNumber}',
+  if (company.articleNumber.isNotEmpty) 'AI : ${company.articleNumber}',
+];
+
+List<String> _clientLegal(SaleClientDetails client) => [
+  if (client.taxNumber.isNotEmpty) 'NIF : ${client.taxNumber}',
+  if (client.nis.isNotEmpty) 'NIS : ${client.nis}',
+  if (client.tradeRegisterNumber.isNotEmpty)
+    'RC : ${client.tradeRegisterNumber}',
+  if (client.articleNumber.isNotEmpty) 'AI : ${client.articleNumber}',
+];

@@ -85,11 +85,31 @@ class EscPosPrinterDriver implements PrinterDriver {
     final lines = <String>[
       '=' * columns,
       fit(company['name_fr']?.toString() ?? 'EL AMINE'),
+      if ((company['address']?.toString() ?? '').isNotEmpty)
+        fit(company['address'].toString()),
+      if ((company['phone']?.toString() ?? '').isNotEmpty)
+        fit('Tel: ${company['phone']}'),
+      if ((company['tax_number']?.toString() ?? '').isNotEmpty)
+        fit('NIF: ${company['tax_number']}'),
+      if ((company['nis']?.toString() ?? '').isNotEmpty)
+        fit('NIS: ${company['nis']}'),
+      if ((company['rc_number']?.toString() ?? '').isNotEmpty)
+        fit('RC: ${company['rc_number']}'),
+      if ((company['article_number']?.toString() ?? '').isNotEmpty)
+        fit('AI: ${company['article_number']}'),
       '=' * columns,
       'FACTURE ${data['invoice_number'] ?? data['ticket_number'] ?? ''}',
       if ((data['issued_at']?.toString() ?? '').isNotEmpty)
         fit('Date: ${data['issued_at']}'),
       if (customer.isNotEmpty) fit('Client: ${customer['name'] ?? ''}'),
+      if ((customer['tax_number']?.toString() ?? '').isNotEmpty)
+        fit('NIF client: ${customer['tax_number']}'),
+      if ((customer['nis']?.toString() ?? '').isNotEmpty)
+        fit('NIS client: ${customer['nis']}'),
+      if ((customer['trade_register_number']?.toString() ?? '').isNotEmpty)
+        fit('RC client: ${customer['trade_register_number']}'),
+      if ((customer['article_number']?.toString() ?? '').isNotEmpty)
+        fit('AI client: ${customer['article_number']}'),
       '-' * columns,
       for (final item in items) ...[
         fit(item['name']?.toString() ?? ''),
@@ -101,7 +121,10 @@ class EscPosPrinterDriver implements PrinterDriver {
       '-' * columns,
       pair('Total HT', totals['total_ht']?.toString() ?? ''),
       pair('Remise', totals['discount']?.toString() ?? ''),
-      pair('TVA', totals['tax_amount']?.toString() ?? ''),
+      pair(
+        'TVA (${totals['tax_rate'] ?? '0'}%)',
+        totals['tax_amount']?.toString() ?? '',
+      ),
       pair('TOTAL TTC', totals['total_ttc']?.toString() ?? ''),
       pair('Paye', totals['amount_paid']?.toString() ?? '0.00'),
       pair('Reste', totals['balance_due']?.toString() ?? '0.00'),

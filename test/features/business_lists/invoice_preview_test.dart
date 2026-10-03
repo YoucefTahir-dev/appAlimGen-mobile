@@ -34,7 +34,20 @@ SaleDetails _sale({
     name: 'Alimentation Exemple avec un nom très long pour le rendu',
     phone: '0550 00 00 00',
     address: '1 rue Exemple, Alger',
+    taxNumber: 'NIF-CLIENT',
+    nis: 'NIS-CLIENT',
+    articleNumber: 'AI-CLIENT',
+    tradeRegisterNumber: 'RC-CLIENT',
     customerType: 'Détail',
+  ),
+  company: const SaleCompanyDetails(
+    name: 'Entreprise test',
+    address: 'Alger',
+    phone: '0550 00 00 00',
+    taxNumber: 'NIF-ENTREPRISE',
+    nis: 'NIS-ENTREPRISE',
+    rcNumber: 'RC-ENTREPRISE',
+    articleNumber: 'AI-ENTREPRISE',
   ),
   lines: List.generate(
     lineCount,
@@ -152,6 +165,27 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('affiche les informations légales et le taux de TVA', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        SingleChildScrollView(
+          child: InvoiceDocumentView(
+            data: InvoiceDocumentData(sale: _sale()),
+            paper: InvoicePaper.a4,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entreprise test'), findsOneWidget);
+    expect(find.textContaining('NIF-ENTREPRISE'), findsOneWidget);
+    expect(find.textContaining('RC-CLIENT'), findsOneWidget);
+    expect(find.text('TVA (19.00%)'), findsOneWidget);
+  });
 
   testWidgets('le profil RPP02N 80 mm présélectionne 80 puis permet 58 et A4', (
     tester,

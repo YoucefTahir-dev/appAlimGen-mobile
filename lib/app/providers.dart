@@ -6,6 +6,7 @@ import 'package:app_alim_gen_mobile/features/auth/data/auth_repository.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/session_repository.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/data/business_repositories.dart';
 import 'package:app_alim_gen_mobile/features/clients/data/clients_repository.dart';
+import 'package:app_alim_gen_mobile/features/company_settings/data/company_settings_repository.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/data/dashboard_repository.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/data/loading_orders_repository.dart';
 import 'package:app_alim_gen_mobile/features/printers/data/printers_repository.dart';
@@ -58,6 +59,12 @@ final productsRepositoryProvider = Provider<ProductsRepository>(
 );
 final clientsRepositoryProvider = Provider<ClientsRepository>(
   (ref) => ClientsRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final companySettingsRepositoryProvider = Provider<CompanySettingsRepository>(
+  (ref) => CompanySettingsRepository(
     ref.watch(apiClientProvider).dio,
     ref.watch(errorMapperProvider),
   ),

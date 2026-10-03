@@ -40,6 +40,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         'wilaya',
         'email',
         'tax_number',
+        'nis',
+        'article_number',
+        'trade_register_number',
         'balance',
         'notes',
       ])
@@ -62,6 +65,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       _fields['wilaya']!.text = client.wilaya;
       _fields['email']!.text = client.email;
       _fields['tax_number']!.text = client.taxNumber;
+      _fields['nis']!.text = client.nis;
+      _fields['article_number']!.text = client.articleNumber;
+      _fields['trade_register_number']!.text = client.tradeRegisterNumber;
       _fields['balance']!.text = client.balance;
       _fields['notes']!.text = client.notes;
       _customerType = client.customerType;
@@ -148,6 +154,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       customerType: _customerType,
       email: _value('email'),
       taxNumber: _value('tax_number'),
+      nis: _value('nis'),
+      articleNumber: _value('article_number'),
+      tradeRegisterNumber: _value('trade_register_number'),
       balance: _value('balance').replaceAll(',', '.'),
       notes: _value('notes'),
       latitude: _latitude,
@@ -247,13 +256,17 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       setState(() => _customerType = value ?? 'RETAIL'),
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionLegal')),
+                _text('tax_number', _t('taxNumber')),
+                _text('nis', _t('nis')),
+                _text('trade_register_number', _t('tradeRegisterNumber')),
+                _text('article_number', _t('articleNumber')),
                 FormSectionHeader(title: _t('sectionAdditional')),
                 _text(
                   'email',
                   _t('email'),
                   keyboard: TextInputType.emailAddress,
                 ),
-                _text('tax_number', _t('taxNumber')),
                 _text(
                   'balance',
                   _t('balance'),

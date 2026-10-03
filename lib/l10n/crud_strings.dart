@@ -49,6 +49,9 @@ class CrudStrings {
       'customerType': 'Type de client',
       'email': 'Email',
       'taxNumber': 'NIF',
+      'nis': 'NIS',
+      'articleNumber': 'Article d’imposition (AI)',
+      'tradeRegisterNumber': 'Registre du commerce (RC)',
       'balance': 'Solde',
       'notes': 'Notes',
       'gpsAccuracy': 'Précision GPS',
@@ -85,6 +88,7 @@ class CrudStrings {
       'sectionStock': 'Stock',
       'sectionLocation': 'Localisation',
       'sectionAdditional': 'Informations complémentaires',
+      'sectionLegal': 'Informations légales',
     },
     'en': {
       'save': 'Save',
@@ -127,6 +131,9 @@ class CrudStrings {
       'customerType': 'Customer type',
       'email': 'Email',
       'taxNumber': 'Tax number',
+      'nis': 'Statistical ID (NIS)',
+      'articleNumber': 'Tax article (AI)',
+      'tradeRegisterNumber': 'Trade register (RC)',
       'balance': 'Balance',
       'notes': 'Notes',
       'gpsAccuracy': 'GPS accuracy',
@@ -163,6 +170,7 @@ class CrudStrings {
       'sectionStock': 'Stock',
       'sectionLocation': 'Location',
       'sectionAdditional': 'Additional information',
+      'sectionLegal': 'Legal information',
     },
     'ar': {
       'save': 'حفظ',
@@ -205,6 +213,9 @@ class CrudStrings {
       'customerType': 'نوع العميل',
       'email': 'البريد الإلكتروني',
       'taxNumber': 'الرقم الجبائي',
+      'nis': 'الرقم الإحصائي (NIS)',
+      'articleNumber': 'رقم المادة الضريبية (AI)',
+      'tradeRegisterNumber': 'السجل التجاري (RC)',
       'balance': 'الرصيد',
       'notes': 'ملاحظات',
       'gpsAccuracy': 'دقة GPS',
@@ -241,6 +252,7 @@ class CrudStrings {
       'sectionStock': 'المخزون',
       'sectionLocation': 'الموقع',
       'sectionAdditional': 'معلومات إضافية',
+      'sectionLegal': 'المعلومات القانونية',
     },
   };
 }

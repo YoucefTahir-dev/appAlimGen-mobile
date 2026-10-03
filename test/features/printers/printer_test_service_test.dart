@@ -133,8 +133,14 @@ void main() {
       data: const {
         'invoice_number': 'FAC-1',
         'issued_at': '2026-09-24T09:00:00Z',
-        'company': {'name_fr': 'EL AMINE'},
-        'customer': {'name': 'Client'},
+        'company': {
+          'name_fr': 'EL AMINE',
+          'tax_number': 'NIF-E',
+          'nis': 'NIS-E',
+          'rc_number': 'RC-E',
+          'article_number': 'AI-E',
+        },
+        'customer': {'name': 'Client', 'tax_number': 'NIF-C'},
         'items': [
           {
             'name': 'Produit',
@@ -147,6 +153,7 @@ void main() {
           'total_ht': '100.00',
           'discount': '0.00',
           'tax_amount': '0.00',
+          'tax_rate': '19.00',
           'total_ttc': '100.00',
           'amount_paid': '40.00',
           'balance_due': '60.00',
@@ -160,6 +167,9 @@ void main() {
     expect(text, contains('40.00'));
     expect(text, contains('Reste'));
     expect(text, contains('60.00'));
+    expect(text, contains('NIF-E'));
+    expect(text, contains('NIF-C'));
+    expect(text, contains('TVA (19.00%)'));
   });
 
   test('raster ticket converts RGBA pixels to ESC/POS image bytes', () {

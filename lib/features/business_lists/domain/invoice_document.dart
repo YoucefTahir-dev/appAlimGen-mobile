@@ -66,6 +66,7 @@ class InvoiceDocumentData {
   String get ticketNumber => sale.ticketNumber;
   String get issuedAt => sale.date;
   SaleClientDetails get client => sale.client;
+  SaleCompanyDetails get company => sale.company;
   List<SaleLineDetails> get lines => sale.lines;
   String get subtotal => sale.subtotal;
   String get discount => sale.discount;

@@ -142,9 +142,14 @@ class SaleClientDetails {
     required this.phone,
     required this.address,
     required this.customerType,
+    this.taxNumber = '',
+    this.nis = '',
+    this.articleNumber = '',
+    this.tradeRegisterNumber = '',
   });
   final int id;
   final String name, phone, address, customerType;
+  final String taxNumber, nis, articleNumber, tradeRegisterNumber;
   factory SaleClientDetails.fromJson(Map<String, dynamic> json) =>
       SaleClientDetails(
         id: (json['id'] as num).toInt(),
@@ -155,6 +160,38 @@ class SaleClientDetails {
             json['customer_type_display']?.toString() ??
             json['customer_type']?.toString() ??
             '',
+        taxNumber: json['tax_number']?.toString() ?? '',
+        nis: json['nis']?.toString() ?? '',
+        articleNumber: json['article_number']?.toString() ?? '',
+        tradeRegisterNumber: json['trade_register_number']?.toString() ?? '',
+      );
+}
+
+class SaleCompanyDetails {
+  const SaleCompanyDetails({
+    this.name = '',
+    this.address = '',
+    this.phone = '',
+    this.email = '',
+    this.rcNumber = '',
+    this.taxNumber = '',
+    this.nis = '',
+    this.articleNumber = '',
+  });
+
+  final String name, address, phone, email;
+  final String rcNumber, taxNumber, nis, articleNumber;
+
+  factory SaleCompanyDetails.fromJson(Map<String, dynamic> json) =>
+      SaleCompanyDetails(
+        name: json['company_name']?.toString() ?? '',
+        address: json['address']?.toString() ?? '',
+        phone: json['phone']?.toString() ?? '',
+        email: json['email']?.toString() ?? '',
+        rcNumber: json['rc_number']?.toString() ?? '',
+        taxNumber: json['tax_number']?.toString() ?? '',
+        nis: json['nis']?.toString() ?? '',
+        articleNumber: json['article_number']?.toString() ?? '',
       );
 }
 
@@ -266,6 +303,7 @@ class SaleDetails {
     required this.paymentStatus,
     required this.payments,
     required this.capabilities,
+    this.company = const SaleCompanyDetails(),
   });
   final int id;
   final String number, ticketNumber, date, subtotal, discount, taxRate;
@@ -273,6 +311,7 @@ class SaleDetails {
   final String paymentTypeCode;
   final String paymentStatus;
   final SaleClientDetails client;
+  final SaleCompanyDetails company;
   final List<SaleLineDetails> lines;
   final List<SalePaymentDetails> payments;
   final SaleCapabilities capabilities;
@@ -286,6 +325,9 @@ class SaleDetails {
       ticketNumber: json['ticket_number']?.toString() ?? '',
       date: json['created_at']?.toString() ?? '',
       client: SaleClientDetails.fromJson(clientJson),
+      company: SaleCompanyDetails.fromJson(
+        Map<String, dynamic>.from(json['company_details'] as Map? ?? {}),
+      ),
       lines: (json['lines'] as List? ?? const [])
           .whereType<Map>()
           .map(
