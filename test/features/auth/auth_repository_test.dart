@@ -105,4 +105,40 @@ void main() {
       ),
     );
   });
+
+  test('demande une réinitialisation sans exposer les secrets', () async {
+    adapter.onPost(
+      'auth/password-reset/request/',
+      (server) => server.reply(
+        200,
+        envelope({
+          'message':
+              'Si une adresse correspond à un compte, un lien a été envoyé.',
+        }),
+      ),
+      data: {'email': 'person@example.com'},
+    );
+
+    await repository.requestPasswordReset(' person@example.com ');
+  });
+
+  test('confirme une réinitialisation avec le contrat API Django', () async {
+    adapter.onPost(
+      'auth/password-reset/confirm/',
+      (server) => server.reply(200, envelope({'message': 'OK'})),
+      data: {
+        'uid': 'uid-1',
+        'token': 'token-1',
+        'new_password': 'New-password-2041!',
+        'new_password_confirm': 'New-password-2041!',
+      },
+    );
+
+    await repository.confirmPasswordReset(
+      uid: 'uid-1',
+      token: 'token-1',
+      newPassword: 'New-password-2041!',
+      newPasswordConfirm: 'New-password-2041!',
+    );
+  });
 }

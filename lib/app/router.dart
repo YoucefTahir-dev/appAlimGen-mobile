@@ -3,6 +3,7 @@ import 'package:app_alim_gen_mobile/core/navigation/forbidden_screen.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/login_screen.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/forgot_password_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
 import 'package:app_alim_gen_mobile/features/clients/presentation/clients_screen.dart';
 import 'package:app_alim_gen_mobile/features/company_settings/presentation/company_settings_screen.dart';
@@ -22,6 +23,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (_, _) => const ForgotPasswordScreen(),
+      ),
       GoRoute(path: '/dashboard', builder: (_, _) => const DashboardScreen()),
       GoRoute(path: '/products', builder: (_, _) => const ProductsScreen()),
       GoRoute(path: '/clients', builder: (_, _) => const ClientsScreen()),
@@ -50,17 +55,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (_, state) {
       final atLogin = state.matchedLocation == '/login';
+      final atPublicAuth =
+          atLogin || state.matchedLocation == '/forgot-password';
       if (auth.status == AuthStatus.initializing) {
         return state.matchedLocation == '/splash' ? null : '/splash';
       }
       if (auth.status == AuthStatus.unauthenticated) {
-        return atLogin ? null : '/login';
+        return atPublicAuth ? null : '/login';
       }
       if (auth.status == AuthStatus.authenticated) {
         final permissions = PermissionService(
           auth.user?.permissions ?? const <String>{},
         );
-        if (atLogin || state.matchedLocation == '/splash') {
+        if (atPublicAuth || state.matchedLocation == '/splash') {
           return permissions.landingPath();
         }
         if (!permissions.allowsPath(state.matchedLocation)) {

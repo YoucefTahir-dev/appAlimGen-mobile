@@ -57,6 +57,38 @@ class AuthRepository {
     }
   }
 
+  Future<void> requestPasswordReset(String email) async {
+    try {
+      await _dio.post<dynamic>(
+        'auth/password-reset/request/',
+        data: {'email': email.trim()},
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
+  Future<void> confirmPasswordReset({
+    required String uid,
+    required String token,
+    required String newPassword,
+    required String newPasswordConfirm,
+  }) async {
+    try {
+      await _dio.post<dynamic>(
+        'auth/password-reset/confirm/',
+        data: {
+          'uid': uid,
+          'token': token,
+          'new_password': newPassword,
+          'new_password_confirm': newPasswordConfirm,
+        },
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
   Future<void> logout() async {
     final refresh = (await _session.restore())?.refresh;
     try {

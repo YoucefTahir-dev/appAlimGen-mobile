@@ -3,6 +3,7 @@ import 'package:app_alim_gen_mobile/features/auth/presentation/login_controller.
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -114,6 +115,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         const SizedBox(height: 24),
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: TextButton(
+                            key: const Key('forgot-password-button'),
+                            onPressed: busy
+                                ? null
+                                : () => context.go('/forgot-password'),
+                            child: Text(strings.text('forgotPassword')),
+                          ),
+                        ),
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
