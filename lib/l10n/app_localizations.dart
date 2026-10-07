@@ -16,6 +16,31 @@ class AppLocalizations {
       'username': 'Nom d’utilisateur',
       'password': 'Mot de passe',
       'signIn': 'Se connecter',
+      'or': 'ou',
+      'biometricLogin': 'Se connecter avec la biométrie',
+      'biometricReason': 'Confirmez votre identité pour ouvrir EL AMINE.',
+      'enableBiometricTitle': 'Activer la connexion biométrique ?',
+      'enableBiometricDescription':
+          'Vous pourrez ouvrir cette session avec l’empreinte digitale ou la biométrie configurée sur cet appareil.',
+      'later': 'Plus tard',
+      'enable': 'Activer',
+      'enabled': 'Activée',
+      'disabled': 'Désactivée',
+      'security': 'Sécurité',
+      'biometricSettingDescription':
+          'La biométrie reste locale à cet appareil et ne remplace pas la session sécurisée du serveur.',
+      'biometricEnabled': 'Connexion biométrique activée.',
+      'biometricDisabled': 'Connexion biométrique désactivée.',
+      'biometricEnableFailed': 'Impossible d’activer la biométrie.',
+      'biometricUnavailable':
+          'La biométrie n’est pas disponible sur cet appareil.',
+      'biometricNotEnrolled':
+          'Configurez d’abord une empreinte ou une biométrie dans Android.',
+      'biometricTemporaryLockout':
+          'Trop de tentatives. Réessayez dans quelques instants.',
+      'biometricPermanentLockout':
+          'La biométrie est verrouillée. Déverrouillez d’abord votre appareil.',
+      'biometricFailed': 'La vérification biométrique a échoué.',
       'forgotPassword': 'Mot de passe oublié ?',
       'forgotPasswordHelp':
           'Saisissez votre adresse e-mail pour recevoir un lien sécurisé.',
@@ -155,6 +180,28 @@ class AppLocalizations {
       'username': 'اسم المستخدم',
       'password': 'كلمة المرور',
       'signIn': 'دخول',
+      'or': 'أو',
+      'biometricLogin': 'تسجيل الدخول بالبصمة',
+      'biometricReason': 'أكّد هويتك لفتح تطبيق EL AMINE.',
+      'enableBiometricTitle': 'تفعيل تسجيل الدخول بالبصمة؟',
+      'enableBiometricDescription':
+          'يمكنك فتح هذه الجلسة بالبصمة أو بوسيلة التحقق البيومترية المضبوطة على هذا الجهاز.',
+      'later': 'لاحقاً',
+      'enable': 'تفعيل',
+      'enabled': 'مفعّلة',
+      'disabled': 'معطّلة',
+      'security': 'الأمان',
+      'biometricSettingDescription':
+          'تبقى البيانات البيومترية محلية على الجهاز ولا تستبدل جلسة الخادم الآمنة.',
+      'biometricEnabled': 'تم تفعيل تسجيل الدخول بالبصمة.',
+      'biometricDisabled': 'تم تعطيل تسجيل الدخول بالبصمة.',
+      'biometricEnableFailed': 'تعذّر تفعيل التحقق البيومتري.',
+      'biometricUnavailable': 'التحقق البيومتري غير متاح على هذا الجهاز.',
+      'biometricNotEnrolled':
+          'اضبط أولاً بصمة أو وسيلة تحقق بيومترية في إعدادات Android.',
+      'biometricTemporaryLockout': 'محاولات كثيرة. أعد المحاولة بعد قليل.',
+      'biometricPermanentLockout': 'التحقق البيومتري مقفل. افتح الجهاز أولاً.',
+      'biometricFailed': 'فشل التحقق البيومتري.',
       'forgotPassword': 'نسيت كلمة المرور؟',
       'forgotPasswordHelp': 'أدخل بريدك الإلكتروني لتصلك رابطة آمنة.',
       'email': 'البريد الإلكتروني',
@@ -291,6 +338,30 @@ class AppLocalizations {
       'username': 'Username',
       'password': 'Password',
       'signIn': 'Sign in',
+      'or': 'or',
+      'biometricLogin': 'Sign in with biometrics',
+      'biometricReason': 'Confirm your identity to open EL AMINE.',
+      'enableBiometricTitle': 'Enable biometric sign-in?',
+      'enableBiometricDescription':
+          'You will be able to open this session with the fingerprint or biometrics configured on this device.',
+      'later': 'Later',
+      'enable': 'Enable',
+      'enabled': 'Enabled',
+      'disabled': 'Disabled',
+      'security': 'Security',
+      'biometricSettingDescription':
+          'Biometric data stays on this device and does not replace the secure server session.',
+      'biometricEnabled': 'Biometric sign-in enabled.',
+      'biometricDisabled': 'Biometric sign-in disabled.',
+      'biometricEnableFailed': 'Unable to enable biometric sign-in.',
+      'biometricUnavailable': 'Biometrics are not available on this device.',
+      'biometricNotEnrolled':
+          'First configure a fingerprint or biometrics in Android settings.',
+      'biometricTemporaryLockout':
+          'Too many attempts. Try again in a few moments.',
+      'biometricPermanentLockout':
+          'Biometrics are locked. Unlock your device first.',
+      'biometricFailed': 'Biometric verification failed.',
       'forgotPassword': 'Forgot password?',
       'forgotPasswordHelp':
           'Enter your email address to receive a secure link.',

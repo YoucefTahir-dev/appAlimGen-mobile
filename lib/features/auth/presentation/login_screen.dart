@@ -1,5 +1,8 @@
 import 'package:app_alim_gen_mobile/core/widgets/language_menu.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/login_controller.dart';
+import 'package:app_alim_gen_mobile/app/providers.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,12 +19,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   bool _obscure = true;
+  bool _biometricAvailable = false;
+  bool _biometricBusy = false;
+  BiometricAuthResult? _biometricResult;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
       if (mounted) ref.read(loginControllerProvider.notifier).reset();
+      _loadBiometricAvailability();
     });
   }
 
@@ -114,17 +121,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 24),
-                        Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: TextButton(
-                            key: const Key('forgot-password-button'),
-                            onPressed: busy
-                                ? null
-                                : () => context.go('/forgot-password'),
-                            child: Text(strings.text('forgotPassword')),
+                        if (_biometricResult != null &&
+                            _biometricResult != BiometricAuthResult.success &&
+                            _biometricResult != BiometricAuthResult.canceled)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(
+                              _biometricMessage(strings, _biometricResult!),
+                              key: const Key('biometric-error'),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
                           ),
-                        ),
+                        const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
@@ -138,6 +148,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   )
                                 : Text(strings.signIn),
+                          ),
+                        ),
+                        if (_biometricAvailable) ...[
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              const Expanded(child: Divider()),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Text(strings.text('or')),
+                              ),
+                              const Expanded(child: Divider()),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              key: const Key('biometric-login-button'),
+                              onPressed: busy || _biometricBusy
+                                  ? null
+                                  : _loginWithBiometrics,
+                              icon: _biometricBusy
+                                  ? const SizedBox.square(
+                                      dimension: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.fingerprint),
+                              label: Text(strings.text('biometricLogin')),
+                            ),
+                          ),
+                        ],
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: TextButton(
+                            key: const Key('forgot-password-button'),
+                            onPressed: busy
+                                ? null
+                                : () => context.go('/forgot-password'),
+                            child: Text(strings.text('forgotPassword')),
                           ),
                         ),
                       ],
@@ -158,4 +212,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .read(loginControllerProvider.notifier)
         .submit(_username.text, _password.text);
   }
+
+  Future<void> _loadBiometricAvailability() async {
+    final available = await ref
+        .read(biometricSessionManagerProvider)
+        .canUnlockStoredSession();
+    if (mounted) setState(() => _biometricAvailable = available);
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    setState(() {
+      _biometricBusy = true;
+      _biometricResult = null;
+    });
+    final result = await ref
+        .read(authControllerProvider.notifier)
+        .unlockWithBiometrics();
+    if (mounted) {
+      setState(() {
+        _biometricBusy = false;
+        _biometricResult = result;
+        if (result == BiometricAuthResult.unavailable ||
+            result == BiometricAuthResult.notEnrolled) {
+          _biometricAvailable = false;
+        }
+      });
+    }
+  }
+
+  String _biometricMessage(
+    AppLocalizations strings,
+    BiometricAuthResult result,
+  ) => switch (result) {
+    BiometricAuthResult.temporaryLockout => strings.text(
+      'biometricTemporaryLockout',
+    ),
+    BiometricAuthResult.permanentLockout => strings.text(
+      'biometricPermanentLockout',
+    ),
+    BiometricAuthResult.notEnrolled => strings.text('biometricNotEnrolled'),
+    BiometricAuthResult.unavailable => strings.text('biometricUnavailable'),
+    _ => strings.text('biometricFailed'),
+  };
 }

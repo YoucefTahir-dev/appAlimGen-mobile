@@ -4,6 +4,7 @@ import 'package:app_alim_gen_mobile/core/navigation/app_module.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/core/widgets/language_menu.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,10 +32,16 @@ class ModuleScaffold extends ConsumerStatefulWidget {
 
 class _ModuleScaffoldState extends ConsumerState<ModuleScaffold> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _biometricOfferScheduled = false;
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authControllerProvider).user;
+    final auth = ref.watch(authControllerProvider);
+    final user = auth.user;
+    if (auth.biometricOfferPending && !_biometricOfferScheduled) {
+      _biometricOfferScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _offerBiometrics());
+    }
     final permissions = PermissionService(user?.permissions ?? const {});
     final strings = AppLocalizations.of(context);
     final destinations = _mobileDestinations(permissions);
@@ -118,6 +125,42 @@ class _ModuleScaffoldState extends ConsumerState<ModuleScaffold> {
             )
           : null,
     );
+  }
+
+  Future<void> _offerBiometrics() async {
+    if (!mounted) return;
+    ref.read(authControllerProvider.notifier).dismissBiometricOffer();
+    final strings = AppLocalizations.of(context);
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.text('enableBiometricTitle')),
+        content: Text(strings.text('enableBiometricDescription')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(strings.text('later')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(strings.text('enable')),
+          ),
+        ],
+      ),
+    );
+    if (enable == true && mounted) {
+      final result = await ref
+          .read(authControllerProvider.notifier)
+          .enableBiometrics();
+      if (!mounted) return;
+      final message = result == BiometricAuthResult.success
+          ? strings.text('biometricEnabled')
+          : strings.text('biometricEnableFailed');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+    _biometricOfferScheduled = false;
   }
 
   List<AppModule> _mobileDestinations(PermissionService permissions) {

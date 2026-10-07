@@ -3,6 +3,9 @@ import 'package:app_alim_gen_mobile/core/network/api_client.dart';
 import 'package:app_alim_gen_mobile/core/network/session_events.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/auth_repository.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_preference_store.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_session_manager.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/session_repository.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/data/business_repositories.dart';
 import 'package:app_alim_gen_mobile/features/clients/data/clients_repository.dart';
@@ -17,9 +20,26 @@ import 'package:app_alim_gen_mobile/features/products/data/products_repository.d
 import 'package:app_alim_gen_mobile/features/stock/data/stock_repository.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+final secureStorageProvider = Provider<FlutterSecureStorage>(
+  (ref) => const FlutterSecureStorage(aOptions: AndroidOptions()),
+);
 final tokenStorageProvider = Provider<TokenStorage>(
-  (ref) => SecureTokenStorage(),
+  (ref) => SecureTokenStorage(storage: ref.watch(secureStorageProvider)),
+);
+final biometricPreferenceStoreProvider = Provider<BiometricPreferenceStore>(
+  (ref) => SecureBiometricPreferenceStore(ref.watch(secureStorageProvider)),
+);
+final biometricAuthServiceProvider = Provider<BiometricAuthService>(
+  (ref) => LocalBiometricAuthService(),
+);
+final biometricSessionManagerProvider = Provider<BiometricSessionManager>(
+  (ref) => BiometricSessionManager(
+    ref.watch(biometricAuthServiceProvider),
+    ref.watch(biometricPreferenceStoreProvider),
+    ref.watch(tokenStorageProvider),
+  ),
 );
 final sessionEventsProvider = Provider<SessionEvents>((ref) {
   final events = SessionEvents();

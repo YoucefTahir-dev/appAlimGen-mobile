@@ -3,13 +3,20 @@ import 'dart:async';
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/features/auth/domain/auth_models.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
+import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum AuthStatus { initializing, unauthenticated, authenticated }
 
 class AuthState {
-  const AuthState({required this.status, this.user, this.restoreFailure});
+  const AuthState({
+    required this.status,
+    this.user,
+    this.restoreFailure,
+    this.biometricOfferPending = false,
+  });
   const AuthState.initializing() : this(status: AuthStatus.initializing);
   const AuthState.unauthenticated({AppFailure? restoreFailure})
     : this(status: AuthStatus.unauthenticated, restoreFailure: restoreFailure);
@@ -18,6 +25,7 @@ class AuthState {
   final AuthStatus status;
   final UserProfile? user;
   final AppFailure? restoreFailure;
+  final bool biometricOfferPending;
 }
 
 class AuthController extends Notifier<AuthState> {
@@ -44,6 +52,20 @@ class AuthController extends Notifier<AuthState> {
       return;
     }
     _log('TOKEN_FOUND');
+    final biometrics = ref.read(biometricSessionManagerProvider);
+    if (await biometrics.hasConfiguredStoredSession()) {
+      final result = await biometrics.unlock(reason: _biometricReason());
+      if (result != BiometricAuthResult.success) {
+        _log('UNAUTHENTICATED reason=biometric_${result.name}');
+        state = const AuthState.unauthenticated();
+        return;
+      }
+      _log('BIOMETRIC_AUTHENTICATED');
+    }
+    await _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
     _log('SESSION_RESTORE');
     try {
       final user = await ref.read(authRepositoryProvider).me();
@@ -67,6 +89,51 @@ class AuthController extends Notifier<AuthState> {
   void completeLogin(UserProfile user) {
     _log('AUTHENTICATED source=manual_login');
     state = AuthState.authenticated(user);
+    Future.microtask(() async {
+      final shouldOffer = await ref
+          .read(biometricSessionManagerProvider)
+          .shouldOfferFor(user.id);
+      if (shouldOffer &&
+          state.status == AuthStatus.authenticated &&
+          state.user?.id == user.id) {
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          user: user,
+          biometricOfferPending: true,
+        );
+      }
+    });
+  }
+
+  Future<BiometricAuthResult> unlockWithBiometrics() async {
+    final manager = ref.read(biometricSessionManagerProvider);
+    if (!await manager.canUnlockStoredSession()) {
+      return BiometricAuthResult.unavailable;
+    }
+    final result = await manager.unlock(reason: _biometricReason());
+    if (result == BiometricAuthResult.success) await _restoreSession();
+    return result;
+  }
+
+  Future<BiometricAuthResult> enableBiometrics() async {
+    final user = state.user;
+    if (user == null) return BiometricAuthResult.unavailable;
+    final result = await ref
+        .read(biometricSessionManagerProvider)
+        .enableFor(userId: user.id, reason: _biometricReason());
+    dismissBiometricOffer();
+    return result;
+  }
+
+  Future<BiometricAuthResult> disableBiometrics() => ref
+      .read(biometricSessionManagerProvider)
+      .disable(reason: _biometricReason());
+
+  void dismissBiometricOffer() {
+    final user = state.user;
+    if (state.status == AuthStatus.authenticated && user != null) {
+      state = AuthState.authenticated(user);
+    }
   }
 
   Future<void> logout() async {
@@ -78,6 +145,9 @@ class AuthController extends Notifier<AuthState> {
   void _log(String event) {
     if (kDebugMode) debugPrint('[AUTH] $event');
   }
+
+  String _biometricReason() =>
+      AppLocalizations(ref.read(localeProvider)).text('biometricReason');
 }
 
 final authControllerProvider = NotifierProvider<AuthController, AuthState>(

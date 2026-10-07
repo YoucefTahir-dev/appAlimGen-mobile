@@ -1,6 +1,11 @@
 import 'dart:async';
 
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
+import 'package:app_alim_gen_mobile/app/providers.dart';
+import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_preference_store.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_session_manager.dart';
 import 'package:app_alim_gen_mobile/features/auth/domain/auth_models.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/login_controller.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/login_screen.dart';
@@ -35,8 +40,33 @@ class _LoginController extends LoginController {
   }
 }
 
-Widget _app(_LoginController Function() controller) => ProviderScope(
-  overrides: [loginControllerProvider.overrideWith(controller)],
+class _BiometricAuth implements BiometricAuthService {
+  const _BiometricAuth(this.deviceAvailability);
+  final BiometricAvailability deviceAvailability;
+
+  @override
+  Future<BiometricAvailability> availability() async => deviceAvailability;
+
+  @override
+  Future<BiometricAuthResult> authenticate({required String reason}) async =>
+      BiometricAuthResult.success;
+}
+
+Widget _app(
+  _LoginController Function() controller, {
+  BiometricSessionManager? biometrics,
+}) => ProviderScope(
+  overrides: [
+    loginControllerProvider.overrideWith(controller),
+    biometricSessionManagerProvider.overrideWithValue(
+      biometrics ??
+          BiometricSessionManager(
+            const _BiometricAuth(BiometricAvailability.unsupported),
+            MemoryBiometricPreferenceStore(),
+            MemoryTokenStorage(),
+          ),
+    ),
+  ],
   child: const MaterialApp(
     locale: Locale('fr'),
     supportedLocales: AppLocalizations.supportedLocales,
@@ -110,5 +140,29 @@ void main() {
       find.text('Le serveur met trop de temps à répondre.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('affiche la connexion biométrique seulement avec une session', (
+    tester,
+  ) async {
+    final preferences = MemoryBiometricPreferenceStore();
+    await preferences.enableFor(1);
+    final tokens = MemoryTokenStorage();
+    await tokens.write(const StoredTokens(access: 'a', refresh: 'r'));
+    final manager = BiometricSessionManager(
+      const _BiometricAuth(BiometricAvailability.available),
+      preferences,
+      tokens,
+    );
+
+    await tester.pumpWidget(
+      _app(
+        () => _LoginController(Completer<UserProfile>()),
+        biometrics: manager,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('biometric-login-button')), findsOneWidget);
   });
 }

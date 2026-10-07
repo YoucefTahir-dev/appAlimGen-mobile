@@ -205,7 +205,7 @@ void main() {
     },
   );
 
-  test('ajoute Bearer aux routes protégées mais jamais au login', () async {
+  test('ajoute Bearer uniquement aux routes protégées', () async {
     final storage = MemoryTokenStorage()
       ..value = const StoredTokens(access: 'secret-access', refresh: 'refresh');
     final events = SessionEvents();
@@ -230,9 +230,14 @@ void main() {
 
     await dio.get<dynamic>('products/');
     await dio.post<dynamic>('auth/login/', data: const {});
+    await dio.post<dynamic>(
+      'auth/password-reset/request/',
+      data: const {'email': 'test@example.com'},
+    );
 
     expect(headers['products/'], 'Bearer secret-access');
     expect(headers['auth/login/'], isNull);
+    expect(headers['auth/password-reset/request/'], isNull);
     events.dispose();
   });
 }

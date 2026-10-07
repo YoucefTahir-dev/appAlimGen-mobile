@@ -5,6 +5,9 @@ import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/network/session_events.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/auth_repository.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_preference_store.dart';
+import 'package:app_alim_gen_mobile/features/auth/data/biometric_session_manager.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/session_repository.dart';
 import 'package:app_alim_gen_mobile/features/auth/domain/auth_models.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
@@ -48,6 +51,29 @@ class _AuthRepository extends AuthRepository {
   }
 }
 
+class _BiometricAuth implements BiometricAuthService {
+  _BiometricAuth([this.result = BiometricAuthResult.success]);
+  final BiometricAuthResult result;
+
+  @override
+  Future<BiometricAvailability> availability() async =>
+      BiometricAvailability.available;
+
+  @override
+  Future<BiometricAuthResult> authenticate({required String reason}) async =>
+      result;
+}
+
+BiometricSessionManager _biometrics(
+  TokenStorage storage, {
+  MemoryBiometricPreferenceStore? preferences,
+  BiometricAuthResult result = BiometricAuthResult.success,
+}) => BiometricSessionManager(
+  _BiometricAuth(result),
+  preferences ?? MemoryBiometricPreferenceStore(),
+  storage,
+);
+
 Future<AuthState> _settledAuth(ProviderContainer container) {
   final completer = Completer<AuthState>();
   late ProviderSubscription<AuthState> subscription;
@@ -74,6 +100,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           sessionRepositoryProvider.overrideWithValue(session),
+          biometricSessionManagerProvider.overrideWithValue(
+            _biometrics(storage),
+          ),
           authRepositoryProvider.overrideWithValue(auth),
           sessionEventsProvider.overrideWithValue(events),
         ],
@@ -99,6 +128,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         sessionRepositoryProvider.overrideWithValue(session),
+        biometricSessionManagerProvider.overrideWithValue(_biometrics(storage)),
         authRepositoryProvider.overrideWithValue(auth),
         sessionEventsProvider.overrideWithValue(events),
       ],
@@ -137,6 +167,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           sessionRepositoryProvider.overrideWithValue(session),
+          biometricSessionManagerProvider.overrideWithValue(
+            _biometrics(storage),
+          ),
           authRepositoryProvider.overrideWithValue(auth),
           sessionEventsProvider.overrideWithValue(events),
         ],
@@ -164,6 +197,9 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           sessionRepositoryProvider.overrideWithValue(session),
+          biometricSessionManagerProvider.overrideWithValue(
+            _biometrics(storage),
+          ),
           authRepositoryProvider.overrideWithValue(auth),
           sessionEventsProvider.overrideWithValue(events),
         ],
@@ -183,4 +219,67 @@ void main() {
       expect(state.restoreFailure, isNull);
     },
   );
+
+  test('une session protégée exige la biométrie au démarrage', () async {
+    final storage = MemoryTokenStorage()
+      ..value = const StoredTokens(access: 'access', refresh: 'refresh');
+    final preferences = MemoryBiometricPreferenceStore();
+    await preferences.enableFor(1);
+    final session = SessionRepository(storage);
+    final auth = _AuthRepository(session);
+    final events = SessionEvents();
+    final container = ProviderContainer(
+      overrides: [
+        sessionRepositoryProvider.overrideWithValue(session),
+        biometricSessionManagerProvider.overrideWithValue(
+          _biometrics(storage, preferences: preferences),
+        ),
+        authRepositoryProvider.overrideWithValue(auth),
+        sessionEventsProvider.overrideWithValue(events),
+      ],
+    );
+    addTearDown(() {
+      container.dispose();
+      events.dispose();
+    });
+
+    final state = await _settledAuth(container);
+
+    expect(state.status, AuthStatus.authenticated);
+    expect(auth.meCalls, 1);
+  });
+
+  test('une biométrie annulée garde la session verrouillée', () async {
+    final storage = MemoryTokenStorage()
+      ..value = const StoredTokens(access: 'access', refresh: 'refresh');
+    final preferences = MemoryBiometricPreferenceStore();
+    await preferences.enableFor(1);
+    final session = SessionRepository(storage);
+    final auth = _AuthRepository(session);
+    final events = SessionEvents();
+    final container = ProviderContainer(
+      overrides: [
+        sessionRepositoryProvider.overrideWithValue(session),
+        biometricSessionManagerProvider.overrideWithValue(
+          _biometrics(
+            storage,
+            preferences: preferences,
+            result: BiometricAuthResult.canceled,
+          ),
+        ),
+        authRepositoryProvider.overrideWithValue(auth),
+        sessionEventsProvider.overrideWithValue(events),
+      ],
+    );
+    addTearDown(() {
+      container.dispose();
+      events.dispose();
+    });
+
+    final state = await _settledAuth(container);
+
+    expect(state.status, AuthStatus.unauthenticated);
+    expect(auth.meCalls, 0);
+    expect(await storage.read(), isNotNull);
+  });
 }

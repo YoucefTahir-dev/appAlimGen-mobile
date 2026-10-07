@@ -131,6 +131,8 @@ class AuthInterceptor extends Interceptor {
   bool _isPublicPath(String path) =>
       path.endsWith('auth/login/') ||
       path.endsWith('auth/refresh/') ||
+      path.endsWith('auth/password-reset/request/') ||
+      path.endsWith('auth/password-reset/confirm/') ||
       path.endsWith('healthz/') ||
       path.endsWith('readyz/');
 
