@@ -8,7 +8,14 @@ class SafeApiLogger extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     options.extra[_startedAtKey] = DateTime.now().microsecondsSinceEpoch;
     if (kDebugMode) {
-      debugPrint('[API] ${options.method} ${options.uri.path}');
+      final hasIdempotencyKey = options.headers.keys.any(
+        (key) => key.toLowerCase() == 'idempotency-key',
+      );
+      debugPrint(
+        '[API] ${options.method} ${_safeUrl(options.uri)} '
+        'contentType=${options.contentType ?? Headers.jsonContentType} '
+        'idempotency=$hasIdempotencyKey body=${_safeBody(options.data)}',
+      );
     }
     handler.next(options);
   }
@@ -18,8 +25,9 @@ class SafeApiLogger extends Interceptor {
     if (kDebugMode) {
       debugPrint(
         '[API] ${response.requestOptions.method} '
-        '${response.requestOptions.uri.path} ${response.statusCode} '
-        '${_duration(response.requestOptions)}ms',
+        '${_safeUrl(response.requestOptions.uri)} ${response.statusCode} '
+        '${_duration(response.requestOptions)}ms '
+        'body=${_safeBody(response.data)}',
       );
     }
     handler.next(response);
@@ -29,7 +37,7 @@ class SafeApiLogger extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
       debugPrint(
-        '[API] ${err.requestOptions.method} ${err.requestOptions.uri.path} '
+        '[API] ${err.requestOptions.method} ${_safeUrl(err.requestOptions.uri)} '
         '${err.response?.statusCode ?? err.type.name} '
         '${_duration(err.requestOptions)}ms body=${_safeBody(err.response?.data)}',
       );
@@ -43,6 +51,9 @@ class SafeApiLogger extends Interceptor {
     return ((DateTime.now().microsecondsSinceEpoch - startedAt) / 1000).round();
   }
 
+  String _safeUrl(Uri uri) =>
+      uri.hasScheme ? '${uri.scheme}://${uri.authority}${uri.path}' : uri.path;
+
   String _safeBody(Object? value) {
     Object? redact(Object? item) {
       if (item is Map) {
@@ -51,7 +62,12 @@ class SafeApiLogger extends Interceptor {
           final sensitive =
               normalized.contains('token') ||
               normalized.contains('password') ||
-              normalized.contains('authorization');
+              normalized.contains('authorization') ||
+              normalized.contains('secret') ||
+              normalized == 'access' ||
+              normalized == 'refresh' ||
+              normalized == 'api_key' ||
+              normalized == 'apikey';
           return MapEntry(key, sensitive ? '[REDACTED]' : redact(child));
         });
       }

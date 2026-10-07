@@ -50,7 +50,10 @@ class ErrorMapper {
       code: apiError is Map && apiError['code'] != null
           ? apiError['code'].toString()
           : _defaultCode(status),
-      message: apiError is Map && apiError['message'] != null
+      message:
+          apiError is Map &&
+              apiError['message'] != null &&
+              (status == null || status < 500)
           ? apiError['message'].toString()
           : _defaultMessage(status),
       statusCode: status,
@@ -70,13 +73,17 @@ class ErrorMapper {
     _ => 'API_ERROR',
   };
   String _defaultMessage(int? status) => switch (status) {
+    400 || 422 => 'Les données envoyées sont invalides.',
     401 => 'Votre session a expiré.',
     403 => 'Vous n’avez pas la permission nécessaire.',
+    404 => 'La ressource demandée est introuvable.',
     405 => 'Cette action n’est pas disponible sur cette version du serveur.',
     409 => 'Cette opération entre en conflit avec l’état actuel des données.',
     429 => 'Trop de demandes. Réessayez plus tard.',
+    500 => 'Une erreur interne du serveur est survenue.',
+    502 || 503 || 504 => 'Le serveur est momentanément indisponible.',
     final value when value != null && value >= 500 =>
-      'Le serveur est momentanément indisponible.',
+      'Une erreur du serveur est survenue.',
     _ => 'La demande n’a pas pu être traitée.',
   };
 }

@@ -85,9 +85,18 @@ void main() {
     expect(request.method, 'PATCH');
     expect(request.path, endsWith('sales/8/'));
     expect(request.headers['Idempotency-Key'], key);
+    expect(request.contentType, Headers.jsonContentType);
     final body = Map<String, dynamic>.from(request.data as Map);
+    expect(body['client'], 2);
+    expect(body['discount'], '5.00');
+    expect(body['tax_rate'], '19.00');
+    expect(body['payment_type'], 'cheque');
+    expect(body['pay_full'], isFalse);
     expect(body['items'], hasLength(2));
     expect((body['items'] as List).first['packaging_id'], 6);
+    expect(body, isNot(contains('id')));
+    expect(body, isNot(contains('invoice_number')));
+    expect(body, isNot(contains('total')));
   });
 }
 

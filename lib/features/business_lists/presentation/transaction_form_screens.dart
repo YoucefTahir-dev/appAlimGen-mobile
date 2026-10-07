@@ -6,6 +6,9 @@ import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.d
 import 'package:app_alim_gen_mobile/features/products/presentation/product_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
+import 'package:app_alim_gen_mobile/features/dashboard/presentation/dashboard_controller.dart';
+import 'package:app_alim_gen_mobile/features/stock/presentation/stock_screens.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -264,6 +267,10 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
           : await repository.update(widget.initial!.id, request, _key);
       if (!mounted) return;
       if (widget.initial != null) {
+        _refreshSaleConsumers();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(SalesStrings.of(context)('saleUpdated'))),
+        );
         Navigator.pop(context, true);
       } else {
         await _showSuccess(result);
@@ -273,6 +280,15 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _refreshSaleConsumers() {
+    ref.invalidate(dashboardProvider);
+    ref.invalidate(salesProvider);
+    ref.invalidate(invoicesProvider);
+    ref.invalidate(paymentsProvider);
+    ref.invalidate(stockProvider);
+    ref.invalidate(operatorStockProvider);
   }
 
   Future<void> _showSuccess(SaleDetails sale) async {

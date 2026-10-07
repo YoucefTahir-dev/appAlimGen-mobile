@@ -49,4 +49,49 @@ void main() {
       FailureKind.timeout,
     );
   });
+
+  test('distingue les principaux statuts HTTP', () {
+    const expected = <int, FailureKind>{
+      400: FailureKind.validation,
+      401: FailureKind.authentication,
+      403: FailureKind.permission,
+      404: FailureKind.notFound,
+      405: FailureKind.methodNotAllowed,
+      409: FailureKind.conflict,
+      500: FailureKind.server,
+      503: FailureKind.server,
+    };
+    for (final entry in expected.entries) {
+      final request = RequestOptions(path: '/sales/8/');
+      final failure = mapper.map(
+        DioException(
+          requestOptions: request,
+          response: Response(requestOptions: request, statusCode: entry.key),
+        ),
+      );
+      expect(failure.kind, entry.value, reason: 'HTTP ${entry.key}');
+      expect(failure.statusCode, entry.key);
+    }
+  });
+
+  test('ne confond plus erreur interne et indisponibilité temporaire', () {
+    AppFailure failureFor(int status) {
+      final request = RequestOptions(path: '/sales/8/');
+      return mapper.map(
+        DioException(
+          requestOptions: request,
+          response: Response(requestOptions: request, statusCode: status),
+        ),
+      );
+    }
+
+    expect(
+      failureFor(500).message,
+      'Une erreur interne du serveur est survenue.',
+    );
+    expect(
+      failureFor(503).message,
+      'Le serveur est momentanément indisponible.',
+    );
+  });
 }
