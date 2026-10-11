@@ -5,6 +5,7 @@ import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
 import 'package:app_alim_gen_mobile/features/printers/presentation/printer_form_screen.dart';
@@ -26,9 +27,10 @@ final printersProvider =
     NotifierProvider<PrintersController, PagedListState<PrinterSummary>>(
       PrintersController.new,
     );
-final defaultPrinterProvider = FutureProvider<PrinterSummary?>(
-  (ref) => ref.watch(printersRepositoryProvider).getDefault(),
-);
+final defaultPrinterProvider = FutureProvider<PrinterSummary?>((ref) {
+  ref.watch(sessionEpochProvider);
+  return ref.watch(printersRepositoryProvider).getDefault();
+});
 
 class PrintersScreen extends ConsumerWidget {
   const PrintersScreen({super.key});

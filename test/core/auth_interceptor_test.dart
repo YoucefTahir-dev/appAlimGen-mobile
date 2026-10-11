@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:app_alim_gen_mobile/core/network/api_client.dart';
 import 'package:app_alim_gen_mobile/core/network/session_events.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,6 +66,7 @@ void main() {
       ApiClient(
         storage: storage,
         sessionEvents: events,
+        sessionBoundary: SessionBoundary(),
         dio: dio,
         refreshDio: refreshDio,
       );
@@ -99,6 +101,7 @@ void main() {
     ApiClient(
       storage: storage,
       sessionEvents: events,
+      sessionBoundary: SessionBoundary(),
       dio: dio,
       refreshDio: refreshDio,
     );
@@ -139,6 +142,7 @@ void main() {
     ApiClient(
       storage: storage,
       sessionEvents: events,
+      sessionBoundary: SessionBoundary(),
       dio: dio,
       refreshDio: refreshDio,
     );
@@ -182,6 +186,7 @@ void main() {
       ApiClient(
         storage: storage,
         sessionEvents: events,
+        sessionBoundary: SessionBoundary(),
         dio: dio,
         refreshDio: refreshDio,
       );
@@ -224,6 +229,7 @@ void main() {
     ApiClient(
       storage: storage,
       sessionEvents: events,
+      sessionBoundary: SessionBoundary(),
       dio: dio,
       refreshDio: refreshDio,
     );
@@ -240,4 +246,52 @@ void main() {
     expect(headers['auth/password-reset/request/'], isNull);
     events.dispose();
   });
+
+  test(
+    'une réponse 401 de la session A ne purge pas les jetons de la session B',
+    () async {
+      final storage = MemoryTokenStorage()
+        ..value = const StoredTokens(access: 'access-a', refresh: 'refresh-a');
+      final events = SessionEvents();
+      final boundary = SessionBoundary();
+      var expired = false;
+      events.expired.listen((_) => expired = true);
+      final requestStarted = Completer<void>();
+      final releaseResponse = Completer<void>();
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'));
+      final refreshDio = Dio(
+        BaseOptions(baseUrl: 'https://example.test/api/v1/'),
+      );
+      dio.httpClientAdapter = _Adapter((_) async {
+        requestStarted.complete();
+        await releaseResponse.future;
+        return _json(401, {
+          'success': false,
+          'error': {'code': 'TOKEN_REVOKED', 'message': 'Ancienne session'},
+        });
+      });
+      ApiClient(
+        storage: storage,
+        sessionEvents: events,
+        sessionBoundary: boundary,
+        dio: dio,
+        refreshDio: refreshDio,
+      );
+
+      final oldRequest = dio.get<dynamic>('products/');
+      await requestStarted.future;
+      boundary.rotate();
+      await storage.write(
+        const StoredTokens(access: 'access-b', refresh: 'refresh-b'),
+      );
+      releaseResponse.complete();
+
+      await expectLater(oldRequest, throwsA(isA<DioException>()));
+      await Future<void>.delayed(Duration.zero);
+
+      expect((await storage.read())?.refresh, 'refresh-b');
+      expect(expired, isFalse);
+      events.dispose();
+    },
+  );
 }

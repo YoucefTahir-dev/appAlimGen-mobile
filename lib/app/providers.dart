@@ -1,6 +1,7 @@
 import 'package:app_alim_gen_mobile/core/errors/error_mapper.dart';
 import 'package:app_alim_gen_mobile/core/network/api_client.dart';
 import 'package:app_alim_gen_mobile/core/network/session_events.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/auth_repository.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
@@ -54,6 +55,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     storage: ref.watch(tokenStorageProvider),
     sessionEvents: ref.watch(sessionEventsProvider),
+    sessionBoundary: ref.watch(sessionBoundaryProvider),
     languageCode: () => languageCode,
   );
 });

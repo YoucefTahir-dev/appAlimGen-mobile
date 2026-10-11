@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/features/auth/domain/auth_models.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
@@ -36,7 +37,7 @@ class AuthController extends Notifier<AuthState> {
     _log('APP_BOOT');
     _expiration = ref.read(sessionEventsProvider).expired.listen((_) {
       _log('UNAUTHENTICATED reason=session_expired');
-      state = const AuthState.unauthenticated();
+      _endSession();
     });
     ref.onDispose(() => _expiration?.cancel());
     Future.microtask(restore);
@@ -48,7 +49,7 @@ class AuthController extends Notifier<AuthState> {
     if (session == null) {
       _log('TOKEN_NOT_FOUND');
       _log('UNAUTHENTICATED reason=no_session');
-      state = const AuthState.unauthenticated();
+      _endSession();
       return;
     }
     _log('TOKEN_FOUND');
@@ -57,7 +58,7 @@ class AuthController extends Notifier<AuthState> {
       final result = await biometrics.unlock(reason: _biometricReason());
       if (result != BiometricAuthResult.success) {
         _log('UNAUTHENTICATED reason=biometric_${result.name}');
-        state = const AuthState.unauthenticated();
+        _endSession();
         return;
       }
       _log('BIOMETRIC_AUTHENTICATED');
@@ -70,13 +71,13 @@ class AuthController extends Notifier<AuthState> {
     try {
       final user = await ref.read(authRepositoryProvider).me();
       _log('AUTHENTICATED source=session_restore');
-      state = AuthState.authenticated(user);
+      _startSession(user);
     } catch (error) {
       final failure = ref.read(errorMapperProvider).map(error);
       if (failure.kind == FailureKind.authentication) {
         await ref.read(sessionRepositoryProvider).clear();
         _log('UNAUTHENTICATED reason=invalid_session');
-        state = const AuthState.unauthenticated();
+        _endSession();
         return;
       }
       // Une panne réseau ne prouve pas que la session est invalide. Les jetons
@@ -88,7 +89,7 @@ class AuthController extends Notifier<AuthState> {
 
   void completeLogin(UserProfile user) {
     _log('AUTHENTICATED source=manual_login');
-    state = AuthState.authenticated(user);
+    _startSession(user);
     Future.microtask(() async {
       final shouldOffer = await ref
           .read(biometricSessionManagerProvider)
@@ -137,8 +138,19 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await ref.read(authRepositoryProvider).logout();
+    final repository = ref.read(authRepositoryProvider);
     _log('UNAUTHENTICATED reason=logout');
+    _endSession();
+    await repository.logout();
+  }
+
+  void _startSession(UserProfile user) {
+    ref.read(sessionEpochProvider.notifier).rotate();
+    state = AuthState.authenticated(user);
+  }
+
+  void _endSession() {
+    ref.read(sessionEpochProvider.notifier).rotate();
     state = const AuthState.unauthenticated();
   }
 

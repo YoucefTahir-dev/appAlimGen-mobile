@@ -1,6 +1,7 @@
 import 'package:app_alim_gen_mobile/core/config/app_config.dart';
 import 'package:app_alim_gen_mobile/core/network/auth_interceptor.dart';
 import 'package:app_alim_gen_mobile/core/network/session_events.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/core/network/safe_api_logger.dart';
 import 'package:app_alim_gen_mobile/core/storage/token_storage.dart';
 import 'package:dio/dio.dart';
@@ -9,6 +10,7 @@ class ApiClient {
   ApiClient({
     required TokenStorage storage,
     required SessionEvents sessionEvents,
+    required SessionBoundary sessionBoundary,
     String Function()? languageCode,
     Dio? dio,
     Dio? refreshDio,
@@ -19,6 +21,7 @@ class ApiClient {
     this.dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
+          options.cancelToken ??= sessionBoundary.cancelToken;
           options.headers['Accept-Language'] = languageCode?.call() ?? 'fr';
           handler.next(options);
         },
@@ -29,6 +32,7 @@ class ApiClient {
         dio: this.dio,
         refreshDio: this.refreshDio,
         storage: storage,
+        sessionBoundary: sessionBoundary,
         onSessionExpired: sessionEvents.notifyExpired,
       ),
     );

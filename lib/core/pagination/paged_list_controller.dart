@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 abstract class PagedListController<T> extends Notifier<PagedListState<T>> {
@@ -10,6 +11,10 @@ abstract class PagedListController<T> extends Notifier<PagedListState<T>> {
 
   @override
   PagedListState<T> build() {
+    ref.watch(sessionEpochProvider);
+    // Rend caduque toute réponse lancée par la session précédente, même si le
+    // transport réseau termine juste après la rotation.
+    _generation++;
     ref.onDispose(() => _debounce?.cancel());
     Future.microtask(refresh);
     // Keep the runtime generic type. A const constructor without an explicit

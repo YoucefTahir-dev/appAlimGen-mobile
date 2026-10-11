@@ -90,15 +90,22 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
-    final refresh = (await _session.restore())?.refresh;
+    final tokens = await _session.restore();
+    // Les identifiants locaux disparaissent avant l'appel distant : une
+    // déconnexion lente ne peut ainsi pas effacer la session suivante.
+    await _session.clear();
     try {
-      if (refresh != null) {
-        await _dio.post<dynamic>('auth/logout/', data: {'refresh': refresh});
+      if (tokens != null) {
+        await _dio.post<dynamic>(
+          'auth/logout/',
+          data: {'refresh': tokens.refresh},
+          options: Options(
+            headers: {'Authorization': 'Bearer ${tokens.access}'},
+          ),
+        );
       }
     } catch (_) {
       // Logout is deliberately best effort; local credentials are always erased.
-    } finally {
-      await _session.clear();
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_body.dart';
 import 'package:app_alim_gen_mobile/core/pagination/paged_list_controller.dart';
@@ -28,7 +29,10 @@ class LoadingOrderActionState {
 
 class LoadingOrderActionController extends Notifier<LoadingOrderActionState> {
   @override
-  LoadingOrderActionState build() => const LoadingOrderActionState();
+  LoadingOrderActionState build() {
+    ref.watch(sessionEpochProvider);
+    return const LoadingOrderActionState();
+  }
 
   Future<LoadingOrderSummary> validateOrder(int id) => _run(
     id,
@@ -293,6 +297,7 @@ class LoadingOrdersScreen extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
+    final sessionGeneration = ref.read(sessionEpochProvider);
     try {
       final controller = ref.read(loadingOrderActionProvider.notifier);
       final updated = await switch (action) {
@@ -300,6 +305,7 @@ class LoadingOrdersScreen extends ConsumerWidget {
         LoadingOrderAction.cancel => controller.cancelOrder(order.id),
         LoadingOrderAction.close => controller.closeOrder(order.id),
       };
+      if (ref.read(sessionEpochProvider) != sessionGeneration) return;
       ref.read(loadingOrdersProvider.notifier).replaceItem(updated);
       ref.invalidate(stockProvider);
       ref.invalidate(operatorStockProvider);
