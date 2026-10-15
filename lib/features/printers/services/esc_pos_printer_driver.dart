@@ -112,7 +112,13 @@ class EscPosPrinterDriver implements PrinterDriver {
         fit('AI client: ${customer['article_number']}'),
       '-' * columns,
       for (final item in items) ...[
-        fit(item['name']?.toString() ?? ''),
+        fit(
+          [
+            item['name']?.toString() ?? '',
+            if ((item['packaging']?.toString() ?? '').isNotEmpty)
+              item['packaging'].toString(),
+          ].join(' - '),
+        ),
         pair(
           '${item['quantity'] ?? ''} x ${item['unit_price'] ?? ''}',
           item['total']?.toString() ?? '',

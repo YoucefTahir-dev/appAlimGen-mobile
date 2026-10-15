@@ -35,6 +35,20 @@ Map<String, dynamic> _product({String name = 'Produit test'}) => {
     'quantity': 2,
     'minimum_stock': 1,
     'description': '',
+    'unit_mode': 'carton_and_piece',
+    'conditionnements': [
+      {
+        'id': 12,
+        'name': 'Carton',
+        'kind': 'carton',
+        'conversion_factor': 24,
+        'reference_purchase_price': '200.00',
+        'super_wholesale_price': '230.00',
+        'wholesale_price': '240.00',
+        'retail_price': '260.00',
+        'is_active': true,
+      },
+    ],
   },
 };
 
@@ -196,7 +210,34 @@ void main() {
       (server) => server.reply(201, _product()),
       data: _request.toJson(),
     );
-    expect((await repository.create(_request)).reference, 'PRD-2026-000007');
+    final product = await repository.create(_request);
+    expect(product.reference, 'PRD-2026-000007');
+    expect(product.unitMode, 'carton_and_piece');
+    expect(product.packagings.single.conversionFactor, 24);
+  });
+  test('creates a carton packaging via POST', () async {
+    const carton = ProductPackagingWriteRequest(
+      productId: 7,
+      name: 'Carton',
+      conversionFactor: 24,
+      referencePurchasePrice: '200.00',
+      superWholesalePrice: '230.00',
+      wholesalePrice: '240.00',
+      retailPrice: '260.00',
+    );
+    adapter.onPost(
+      'packagings/',
+      (server) => server.reply(201, {
+        'success': true,
+        'data': (_product()['data'] as Map)['conditionnements'][0],
+      }),
+      data: carton.toJson(),
+    );
+
+    final saved = await repository.saveCarton(carton);
+
+    expect(saved.kind, 'carton');
+    expect(saved.conversionFactor, 24);
   });
   test('modifie un produit via PATCH', () async {
     adapter.onPatch(

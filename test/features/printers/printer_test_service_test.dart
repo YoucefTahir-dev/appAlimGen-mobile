@@ -145,6 +145,7 @@ void main() {
           {
             'name': 'Produit',
             'quantity': 1,
+            'packaging': 'Carton de 24',
             'unit_price': '100',
             'total': '100',
           },
@@ -170,6 +171,7 @@ void main() {
     expect(text, contains('NIF-E'));
     expect(text, contains('NIF-C'));
     expect(text, contains('TVA (19.00%)'));
+    expect(text, contains('Carton de 24'));
   });
 
   test('raster ticket converts RGBA pixels to ESC/POS image bytes', () {

@@ -51,6 +51,19 @@ class ProductsRepository {
   Future<ProductDetails> update(int id, ProductWriteRequest request) async =>
       ProductDetails.fromJson(await _crud.patch('$path$id/', request.toJson()));
 
+  Future<ProductPackagingDetails> saveCarton(
+    ProductPackagingWriteRequest request, {
+    int? packagingId,
+  }) async => ProductPackagingDetails.fromJson(
+    packagingId == null
+        ? await _crud.create('packagings/', request.toJson())
+        : await _crud.patch('packagings/$packagingId/', request.toJson()),
+  );
+
+  Future<void> disablePackaging(int packagingId) async {
+    await _crud.patch('packagings/$packagingId/', {'is_active': false});
+  }
+
   Future<void> delete(int id) => _crud.delete('$path$id/');
 
   Future<List<ReferenceOption>> references(String resource) async {

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/errors/error_mapper.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/data/loading_orders_repository.dart';
+import 'package:app_alim_gen_mobile/features/loading_orders/domain/loading_order_summary.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http_mock_adapter/http_mock_adapter.dart';
@@ -23,6 +24,18 @@ Map<String, dynamic> _order(String status) => {
 };
 
 void main() {
+  test('serializes optional packaging while preserving legacy payload', () {
+    expect(const LoadingOrderLineWrite(9, 3).toJson(), {
+      'product': 9,
+      'quantity': 3,
+    });
+    expect(const LoadingOrderLineWrite(9, 3, packagingId: 5).toJson(), {
+      'product': 9,
+      'quantity': 3,
+      'packaging_id': 5,
+    });
+  });
+
   test(
     'utilise POST et les URL exactes pour valider, annuler et clôturer',
     () async {

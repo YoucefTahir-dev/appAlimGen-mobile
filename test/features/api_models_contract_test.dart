@@ -86,6 +86,11 @@ void main() {
             'product': 9,
             'product_name': 'Butane',
             'quantity': 10,
+            'entered_quantity': 2,
+            'base_quantity': 24,
+            'packaging_id': 5,
+            'packaging_name': 'Carton de 12',
+            'packaging_factor': 12,
             'sold_quantity': 3,
             'returned_quantity': 0,
           },
@@ -108,7 +113,9 @@ void main() {
         'is_default': true,
       });
 
-      expect(loading.lines.single.loaded, 10);
+      expect(loading.lines.single.loaded, 2);
+      expect(loading.lines.single.baseQuantity, 24);
+      expect(loading.lines.single.packagingName, 'Carton de 12');
       expect(loading.lines.single.sold, 3);
       expect(stock.remaining, 7);
       expect(printer.model, isEmpty);
