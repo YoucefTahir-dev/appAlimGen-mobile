@@ -53,9 +53,18 @@ class LoadingOrderWriteRequest {
 }
 
 class LoadingOrderLineWrite {
-  const LoadingOrderLineWrite(this.productId, this.quantity);
+  const LoadingOrderLineWrite(
+    this.productId,
+    this.quantity, {
+    this.packagingId,
+  });
   final int productId, quantity;
-  Map<String, dynamic> toJson() => {'product': productId, 'quantity': quantity};
+  final int? packagingId;
+  Map<String, dynamic> toJson() => {
+    'product': productId,
+    'quantity': quantity,
+    if (packagingId != null) 'packaging_id': packagingId,
+  };
 }
 
 class LoadingLineSummary {
@@ -65,18 +74,37 @@ class LoadingLineSummary {
     required this.loaded,
     required this.sold,
     required this.returned,
+    this.packagingId,
+    this.packagingName = '',
+    this.packagingFactor = 1,
+    this.baseQuantity = 0,
   });
   final int productId;
   final String productName;
   final int loaded;
   final int sold;
   final int returned;
+  final int? packagingId;
+  final String packagingName;
+  final int packagingFactor;
+  final int baseQuantity;
   factory LoadingLineSummary.fromJson(Map<String, dynamic> json) =>
       LoadingLineSummary(
         productId: (json['product'] as num).toInt(),
         productName: json['product_name']?.toString() ?? '',
-        loaded: (json['quantity'] as num?)?.toInt() ?? 0,
+        loaded:
+            (json['entered_quantity'] as num?)?.toInt() ??
+            (json['packaging_quantity'] as num?)?.toInt() ??
+            (json['quantity'] as num?)?.toInt() ??
+            0,
         sold: (json['sold_quantity'] as num?)?.toInt() ?? 0,
         returned: (json['returned_quantity'] as num?)?.toInt() ?? 0,
+        packagingId: (json['packaging_id'] as num?)?.toInt(),
+        packagingName: json['packaging_name']?.toString() ?? '',
+        packagingFactor: (json['packaging_factor'] as num?)?.toInt() ?? 1,
+        baseQuantity:
+            (json['base_quantity'] as num?)?.toInt() ??
+            (json['quantity'] as num?)?.toInt() ??
+            0,
       );
 }

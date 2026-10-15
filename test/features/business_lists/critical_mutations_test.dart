@@ -34,7 +34,12 @@ void main() {
         reference: 'ACH-1',
         taxRate: '0',
         items: [
-          TransactionLineRequest(productId: 4, quantity: 2, unitPrice: '8.00'),
+          TransactionLineRequest(
+            productId: 4,
+            packagingId: 9,
+            quantity: 2,
+            unitPrice: '8.00',
+          ),
         ],
       ),
       key,
@@ -52,6 +57,10 @@ void main() {
     for (final request in adapter.requests) {
       expect(request.headers['Idempotency-Key'], key);
     }
+    final purchaseBody = Map<String, dynamic>.from(
+      adapter.requests[1].data as Map,
+    );
+    expect((purchaseBody['items'] as List).single['packaging_id'], 9);
   });
 
   test('modification vente conserve sa clé et toutes les lignes', () async {

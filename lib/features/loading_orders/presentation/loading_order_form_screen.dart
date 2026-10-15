@@ -3,6 +3,7 @@ import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/transaction_form_screens.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/domain/loading_order_summary.dart';
+import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,7 +16,10 @@ class LoadingOrderFormScreen extends ConsumerStatefulWidget {
 
 class _Line {
   TransactionOption? product;
+  TransactionOption? packaging;
+  List<TransactionOption> packagings = const [];
   final quantity = TextEditingController(text: '1');
+  int get factor => (packaging?.meta['factor'] as num?)?.toInt() ?? 1;
   void dispose() => quantity.dispose();
 }
 
@@ -52,6 +56,14 @@ class _State extends ConsumerState<LoadingOrderFormScreen> {
             label: line.productName,
           )
           ..quantity.text = line.loaded.toString();
+        if (line.packagingId != null) {
+          l.packaging = TransactionOption(
+            id: line.packagingId!,
+            label: line.packagingName,
+            meta: {'factor': line.packagingFactor},
+          );
+          l.packagings = [l.packaging!];
+        }
         _lines.add(l);
       }
     } catch (e) {
@@ -87,6 +99,7 @@ class _State extends ConsumerState<LoadingOrderFormScreen> {
             (l) => LoadingOrderLineWrite(
               l.product!.id,
               int.parse(l.quantity.text),
+              packagingId: l.packaging?.id,
             ),
           )
           .toList(),
@@ -160,13 +173,64 @@ class _State extends ConsumerState<LoadingOrderFormScreen> {
                                       ),
                                     )
                                     .toList(),
-                            onSelected: (o) => setState(() => l.product = o),
+                            onSelected: (o) {
+                              l.product = o;
+                              l.packagings =
+                                  (o.meta['loading_units'] as List? ?? const [])
+                                      .whereType<Map>()
+                                      .map((raw) {
+                                        final item = Map<String, dynamic>.from(
+                                          raw,
+                                        );
+                                        return TransactionOption(
+                                          id:
+                                              (item['id'] as num?)?.toInt() ??
+                                              0,
+                                          label: item['name']?.toString() ?? '',
+                                          meta: item,
+                                        );
+                                      })
+                                      .where((item) => item.id > 0)
+                                      .toList(growable: false);
+                              l.packaging = null;
+                              setState(() {});
+                            },
                           ),
+                          if (l.packagings.isNotEmpty)
+                            DropdownButtonFormField<TransactionOption?>(
+                              initialValue: l.packaging,
+                              decoration: InputDecoration(
+                                labelText: CrudStrings.of(
+                                  context,
+                                ).text('unitMode'),
+                              ),
+                              items: [
+                                DropdownMenuItem<TransactionOption?>(
+                                  value: null,
+                                  child: Text(
+                                    CrudStrings.of(context).text('pieces'),
+                                  ),
+                                ),
+                                ...l.packagings.map(
+                                  (
+                                    packaging,
+                                  ) => DropdownMenuItem<TransactionOption?>(
+                                    value: packaging,
+                                    child: Text(
+                                      '${packaging.label} (×${packaging.meta['factor'] ?? 1})',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) =>
+                                  setState(() => l.packaging = value),
+                            ),
                           Row(
                             children: [
                               Expanded(
                                 child: TextFormField(
                                   controller: l.quantity,
+                                  onChanged: (_) => setState(() {}),
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(
                                     labelText: 'Quantité',
@@ -186,6 +250,16 @@ class _State extends ConsumerState<LoadingOrderFormScreen> {
                                 ),
                             ],
                           ),
+                          if (l.packaging != null)
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                '${int.tryParse(l.quantity.text) ?? 0} ${l.packaging!.label} = '
+                                '${(int.tryParse(l.quantity.text) ?? 0) * l.factor} '
+                                '${CrudStrings.of(context).text('pieces')}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
                         ],
                       ),
                     ),

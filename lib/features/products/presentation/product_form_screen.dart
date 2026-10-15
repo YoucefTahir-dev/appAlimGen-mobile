@@ -25,6 +25,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late final TextEditingController _quantity;
   late final TextEditingController _minimumStock;
   late final TextEditingController _description;
+  late final TextEditingController _cartonFactor;
+  late final TextEditingController _cartonPurchase;
+  late final TextEditingController _cartonSuperWholesale;
+  late final TextEditingController _cartonWholesale;
+  late final TextEditingController _cartonRetail;
   bool _loading = true;
   bool _submitting = false;
   Object? _loadError;
@@ -36,6 +41,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   List<ReferenceOption> _brands = const [];
   List<ReferenceOption> _units = const [];
   ProductDetails? _initial;
+  ProductPackagingDetails? _existingCarton;
+  String _unitMode = 'piece_only';
+  String _stockUnit = 'base';
+
+  bool get _usesCarton =>
+      _unitMode == 'carton_only' || _unitMode == 'carton_and_piece';
 
   bool get _editing => widget.productId != null;
 
@@ -50,6 +61,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _quantity = TextEditingController(text: '0');
     _minimumStock = TextEditingController(text: '0');
     _description = TextEditingController();
+    _cartonFactor = TextEditingController(text: '1');
+    _cartonPurchase = TextEditingController();
+    _cartonSuperWholesale = TextEditingController();
+    _cartonWholesale = TextEditingController();
+    _cartonRetail = TextEditingController();
     Future.microtask(_load);
   }
 
@@ -76,6 +92,20 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         _quantity.text = '${product.quantity}';
         _minimumStock.text = '${product.minimumStock}';
         _description.text = product.description;
+        _unitMode = product.unitMode;
+        for (final packaging in product.packagings) {
+          if (packaging.kind == 'carton') {
+            _existingCarton = packaging;
+            break;
+          }
+        }
+        if (_existingCarton case final carton?) {
+          _cartonFactor.text = '${carton.conversionFactor}';
+          _cartonPurchase.text = carton.referencePurchasePrice;
+          _cartonSuperWholesale.text = carton.superWholesalePrice;
+          _cartonWholesale.text = carton.wholesalePrice;
+          _cartonRetail.text = carton.retailPrice;
+        }
         _category = product.category;
         _brand = product.brand;
         _unit = product.unit;
@@ -102,10 +132,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return number == null || number < 0 ? _t('integer') : null;
   }
 
+  String? _cartonInteger(String? value) {
+    final number = int.tryParse(value ?? '');
+    return number == null || number < 2 ? _t('cartonFactorInvalid') : null;
+  }
+
   Future<void> _submit() async {
     setState(() => _fieldErrors = const {});
     if (!_formKey.currentState!.validate() || _submitting) return;
     setState(() => _submitting = true);
+    final enteredQuantity = int.parse(_quantity.text);
+    final factor = int.tryParse(_cartonFactor.text) ?? 1;
     final request = ProductWriteRequest(
       name: _name.text.trim(),
       category: _category,
@@ -115,16 +152,36 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       superWholesalePrice: _superWholesale.text.replaceAll(',', '.'),
       wholesalePrice: _wholesale.text.replaceAll(',', '.'),
       retailPrice: _retail.text.replaceAll(',', '.'),
-      quantity: int.parse(_quantity.text),
+      quantity: !_editing && _stockUnit == 'carton'
+          ? enteredQuantity * factor
+          : enteredQuantity,
       minimumStock: int.parse(_minimumStock.text),
       description: _description.text.trim(),
+      unitMode: _unitMode,
     );
     try {
       final repository = ref.read(productsRepositoryProvider);
-      if (_editing) {
-        await repository.update(widget.productId!, request);
-      } else {
-        await repository.create(request);
+      final product = _editing
+          ? await repository.update(widget.productId!, request)
+          : await repository.create(request);
+      if (_usesCarton) {
+        await repository.saveCarton(
+          ProductPackagingWriteRequest(
+            productId: product.id,
+            name: _t('carton'),
+            conversionFactor: factor,
+            referencePurchasePrice: _cartonPurchase.text.replaceAll(',', '.'),
+            superWholesalePrice: _cartonSuperWholesale.text.replaceAll(
+              ',',
+              '.',
+            ),
+            wholesalePrice: _cartonWholesale.text.replaceAll(',', '.'),
+            retailPrice: _cartonRetail.text.replaceAll(',', '.'),
+          ),
+          packagingId: _existingCarton?.id,
+        );
+      } else if (_existingCarton case final carton?) {
+        await repository.disablePackaging(carton.id);
       }
       if (mounted) Navigator.of(context).pop(true);
     } on AppFailure catch (failure) {
@@ -215,6 +272,49 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   onChanged: (v) => setState(() => _unit = v),
                 ),
                 const SizedBox(height: 12),
+                FormSectionHeader(title: _t('sectionPackaging')),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_unitMode),
+                  initialValue: _unitMode,
+                  decoration: _decoration(_t('unitMode'), 'unit_mode'),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'piece_only',
+                      child: Text(_t('pieceOnly')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'carton_only',
+                      child: Text(_t('cartonOnly')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'carton_and_piece',
+                      child: Text(_t('cartonAndPiece')),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _unitMode = value ?? 'piece_only'),
+                ),
+                if (_usesCarton) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cartonFactor,
+                    decoration: _decoration(
+                      _t('piecesPerCarton'),
+                      'conversion_factor',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: _cartonInteger,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if ((int.tryParse(_cartonFactor.text) ?? 0) > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        '1 ${_t('carton')} = ${_cartonFactor.text} ${_t('pieces')}',
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 12),
                 FormSectionHeader(title: _t('sectionPricing')),
                 TextFormField(
                   controller: _purchase,
@@ -260,14 +360,95 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   validator: _decimal,
                 ),
+                if (_usesCarton) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _t('cartonPrices'),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _cartonPurchase,
+                    decoration: _decoration(
+                      _t('cartonPurchasePrice'),
+                      'reference_purchase_price',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _decimal,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cartonSuperWholesale,
+                    decoration: _decoration(
+                      _t('cartonSuperWholesalePrice'),
+                      'super_wholesale_price',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _decimal,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cartonWholesale,
+                    decoration: _decoration(
+                      _t('cartonWholesalePrice'),
+                      'wholesale_price',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _decimal,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cartonRetail,
+                    decoration: _decoration(
+                      _t('cartonRetailPrice'),
+                      'retail_price',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _decimal,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 FormSectionHeader(title: _t('sectionStock')),
+                if (!_editing && _usesCarton)
+                  DropdownButtonFormField<String>(
+                    initialValue: _stockUnit,
+                    decoration: _decoration(_t('stockInputUnit'), 'stock_unit'),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'base',
+                        child: Text(_t('pieces')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'carton',
+                        child: Text(_t('carton')),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _stockUnit = value ?? 'base'),
+                  ),
+                if (!_editing && _usesCarton) const SizedBox(height: 12),
                 TextFormField(
                   controller: _quantity,
                   decoration: _decoration(_t('quantity'), 'quantity'),
                   keyboardType: TextInputType.number,
                   validator: _integer,
+                  onChanged: (_) => setState(() {}),
                 ),
+                if (!_editing && _stockUnit == 'carton' && _usesCarton)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '${_t('canonicalStock')} : ${(int.tryParse(_quantity.text) ?? 0) * (int.tryParse(_cartonFactor.text) ?? 0)} ${_t('pieces')}',
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _minimumStock,
@@ -309,6 +490,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _quantity,
       _minimumStock,
       _description,
+      _cartonFactor,
+      _cartonPurchase,
+      _cartonSuperWholesale,
+      _cartonWholesale,
+      _cartonRetail,
     ]) {
       controller.dispose();
     }

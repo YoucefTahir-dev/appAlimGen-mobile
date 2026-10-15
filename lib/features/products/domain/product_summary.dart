@@ -47,6 +47,8 @@ class ProductDetails {
     required this.quantity,
     required this.minimumStock,
     required this.description,
+    required this.unitMode,
+    required this.packagings,
     this.category,
     this.brand,
     this.unit,
@@ -66,6 +68,8 @@ class ProductDetails {
   final int quantity;
   final int minimumStock;
   final String description;
+  final String unitMode;
+  final List<ProductPackagingDetails> packagings;
 
   factory ProductDetails.fromJson(Map<String, dynamic> json) => ProductDetails(
     id: (json['id'] as num).toInt(),
@@ -82,7 +86,49 @@ class ProductDetails {
     quantity: (json['quantity'] as num?)?.toInt() ?? 0,
     minimumStock: (json['minimum_stock'] as num?)?.toInt() ?? 0,
     description: json['description']?.toString() ?? '',
+    unitMode: json['unit_mode']?.toString() ?? 'legacy',
+    packagings: (json['conditionnements'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (item) =>
+              ProductPackagingDetails.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList(growable: false),
   );
+}
+
+class ProductPackagingDetails {
+  const ProductPackagingDetails({
+    required this.id,
+    required this.name,
+    required this.kind,
+    required this.conversionFactor,
+    required this.referencePurchasePrice,
+    required this.superWholesalePrice,
+    required this.wholesalePrice,
+    required this.retailPrice,
+    required this.isActive,
+  });
+
+  final int id, conversionFactor;
+  final String name, kind;
+  final String referencePurchasePrice, superWholesalePrice;
+  final String wholesalePrice, retailPrice;
+  final bool isActive;
+
+  factory ProductPackagingDetails.fromJson(Map<String, dynamic> json) =>
+      ProductPackagingDetails(
+        id: (json['id'] as num).toInt(),
+        name: json['name']?.toString() ?? '',
+        kind: json['kind']?.toString() ?? 'other',
+        conversionFactor: (json['conversion_factor'] as num?)?.toInt() ?? 1,
+        referencePurchasePrice:
+            json['reference_purchase_price']?.toString() ?? '',
+        superWholesalePrice: json['super_wholesale_price']?.toString() ?? '',
+        wholesalePrice: json['wholesale_price']?.toString() ?? '',
+        retailPrice: json['retail_price']?.toString() ?? '',
+        isActive: json['is_active'] != false,
+      );
 }
 
 class ProductWriteRequest {
@@ -95,6 +141,7 @@ class ProductWriteRequest {
     required this.quantity,
     required this.minimumStock,
     required this.description,
+    this.unitMode = 'piece_only',
     this.category,
     this.brand,
     this.unit,
@@ -110,6 +157,7 @@ class ProductWriteRequest {
   final int quantity;
   final int minimumStock;
   final String description;
+  final String unitMode;
 
   Map<String, dynamic> toJson() => {
     'name': name,
@@ -123,5 +171,39 @@ class ProductWriteRequest {
     'quantity': quantity,
     'minimum_stock': minimumStock,
     'description': description,
+    'unit_mode': unitMode,
+  };
+}
+
+class ProductPackagingWriteRequest {
+  const ProductPackagingWriteRequest({
+    required this.productId,
+    required this.name,
+    required this.conversionFactor,
+    required this.referencePurchasePrice,
+    required this.superWholesalePrice,
+    required this.wholesalePrice,
+    required this.retailPrice,
+    this.isActive = true,
+  });
+
+  final int productId, conversionFactor;
+  final String name, referencePurchasePrice, superWholesalePrice;
+  final String wholesalePrice, retailPrice;
+  final bool isActive;
+
+  Map<String, dynamic> toJson() => {
+    'product': productId,
+    'name': name,
+    'kind': 'carton',
+    'conversion_factor': conversionFactor,
+    'default_sale_price': retailPrice,
+    'reference_purchase_price': referencePurchasePrice,
+    'super_wholesale_price': superWholesalePrice,
+    'wholesale_price': wholesalePrice,
+    'retail_price': retailPrice,
+    'purchase_enabled': true,
+    'sale_enabled': true,
+    'is_active': isActive,
   };
 }

@@ -525,6 +525,7 @@ class TransactionLineRequest {
     'product': productId,
     'quantity': quantity,
     'purchase_price': unitPrice,
+    if (packagingId != null) 'packaging_id': packagingId,
   };
 }
 

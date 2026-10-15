@@ -540,6 +540,35 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
   bool _saving = false;
   String? _error;
   final _key = const Uuid().v4();
+
+  void _selectPurchaseProduct(_LineDraft line, TransactionOption product) {
+    line.product = product;
+    line.packagings = (product.meta['purchase_units'] as List? ?? const [])
+        .whereType<Map>()
+        .map((raw) {
+          final item = Map<String, dynamic>.from(raw);
+          return TransactionOption(
+            id: (item['id'] as num?)?.toInt() ?? 0,
+            label: item['name']?.toString() ?? '',
+            meta: item,
+          );
+        })
+        .where((item) => item.id > 0)
+        .toList(growable: false);
+    line.packaging = null;
+    line.price.text = product.meta['purchase_price']?.toString() ?? '';
+    setState(() {});
+  }
+
+  void _selectPurchasePackaging(_LineDraft line, TransactionOption? packaging) {
+    line.packaging = packaging;
+    line.price.text =
+        packaging?.meta['purchase_price']?.toString() ??
+        line.product?.meta['purchase_price']?.toString() ??
+        '';
+    setState(() {});
+  }
+
   @override
   void dispose() {
     _reference.dispose();
@@ -575,6 +604,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                       productId: l.product!.id,
                       quantity: int.parse(l.quantity.text),
                       unitPrice: l.price.text,
+                      packagingId: l.packaging?.id,
                     ),
                   )
                   .toList(),
@@ -658,8 +688,31 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                       search: (q) => ref
                           .read(purchasesRepositoryProvider)
                           .searchProducts(q),
-                      onSelected: (o) => setState(() => l.product = o),
+                      onSelected: (o) => _selectPurchaseProduct(l, o),
                     ),
+                    if (l.packagings.isNotEmpty)
+                      DropdownButtonFormField<TransactionOption?>(
+                        initialValue: l.packaging,
+                        decoration: InputDecoration(
+                          labelText: CrudStrings.of(context).text('unitMode'),
+                        ),
+                        items: [
+                          DropdownMenuItem<TransactionOption?>(
+                            value: null,
+                            child: Text(CrudStrings.of(context).text('pieces')),
+                          ),
+                          ...l.packagings.map(
+                            (packaging) => DropdownMenuItem<TransactionOption?>(
+                              value: packaging,
+                              child: Text(
+                                '${packaging.label} (×${packaging.meta['factor'] ?? 1})',
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) =>
+                            _selectPurchasePackaging(l, value),
+                      ),
                     Row(
                       children: [
                         Expanded(
@@ -703,6 +756,16 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                         'Total ligne : ${l.total.toStringAsFixed(2)} DZD',
                       ),
                     ),
+                    if (l.packaging != null)
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          '${int.tryParse(l.quantity.text) ?? 0} ${l.packaging!.label} = '
+                          '${(int.tryParse(l.quantity.text) ?? 0) * ((l.packaging!.meta['factor'] as num?)?.toInt() ?? 1)} '
+                          '${CrudStrings.of(context).text('pieces')}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                   ],
                 ),
               ),
