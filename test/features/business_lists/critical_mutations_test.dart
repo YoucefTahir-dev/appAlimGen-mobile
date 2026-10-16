@@ -21,7 +21,9 @@ void main() {
         discount: '0',
         taxRate: '0',
         paymentType: 'cash',
-        payFull: true,
+        payFull: false,
+        amountReceived: '5.00',
+        showLegalInformation: false,
         items: [
           TransactionLineRequest(productId: 4, quantity: 1, unitPrice: '12.00'),
         ],
@@ -61,6 +63,9 @@ void main() {
       adapter.requests[1].data as Map,
     );
     expect((purchaseBody['items'] as List).single['packaging_id'], 9);
+    final saleBody = Map<String, dynamic>.from(adapter.requests[0].data as Map);
+    expect(saleBody['amount_received'], '5.00');
+    expect(saleBody['show_legal_information'], isFalse);
   });
 
   test('modification vente conserve sa clé et toutes les lignes', () async {

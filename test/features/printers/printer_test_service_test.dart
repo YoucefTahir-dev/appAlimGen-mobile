@@ -174,6 +174,36 @@ void main() {
     expect(text, contains('Carton de 24'));
   });
 
+  test('commercial ticket hides legal identifiers when requested', () {
+    final bytes = EscPosPrinterDriver().invoiceTicket(
+      data: const {
+        'invoice_number': 'FAC-2',
+        'show_legal_information': false,
+        'company': {
+          'name_fr': 'EL AMINE',
+          'tax_number': 'NIF-SECRET',
+          'rc_number': 'RC-SECRET',
+        },
+        'customer': {'name': 'Client', 'tax_number': 'NIF-CLIENT-SECRET'},
+        'items': [],
+        'totals': {
+          'total_ht': '0',
+          'discount': '0',
+          'tax_amount': '0',
+          'tax_rate': '0',
+          'total_ttc': '0',
+          'amount_paid': '0',
+          'balance_due': '0',
+        },
+      },
+      paperWidth: 58,
+    );
+    final text = String.fromCharCodes(bytes);
+    expect(text, isNot(contains('NIF-SECRET')));
+    expect(text, isNot(contains('RC-SECRET')));
+    expect(text, isNot(contains('NIF-CLIENT-SECRET')));
+  });
+
   test('raster ticket converts RGBA pixels to ESC/POS image bytes', () {
     final bytes = EscPosPrinterDriver().rasterTicket(
       rgba: Uint8List.fromList([

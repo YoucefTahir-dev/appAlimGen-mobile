@@ -1,5 +1,7 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
+import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/products/domain/product_summary.dart';
 import 'package:app_alim_gen_mobile/core/widgets/app_ui.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
@@ -137,6 +139,203 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return number == null || number < 2 ? _t('cartonFactorInvalid') : null;
   }
 
+  Future<String?> _askCategoryName({String initial = ''}) async {
+    final controller = TextEditingController(text: initial);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(initial.isEmpty ? _t('newCategory') : _t('renameCategory')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 120,
+          decoration: InputDecoration(labelText: _t('name')),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(_t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(_t('save')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  Future<void> _createCategory() async {
+    final name = await _askCategoryName();
+    if (name == null) return;
+    try {
+      final category = await ref
+          .read(productsRepositoryProvider)
+          .createCategory(name);
+      if (!mounted) return;
+      setState(() {
+        _categories = [..._categories, category]
+          ..sort((a, b) => a.name.compareTo(b.name));
+        _category = category.id;
+      });
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
+      }
+    }
+  }
+
+  Future<void> _renameCategory(ReferenceOption category) async {
+    final name = await _askCategoryName(initial: category.name);
+    if (name == null) return;
+    try {
+      final updated = await ref
+          .read(productsRepositoryProvider)
+          .renameCategory(category.id, name);
+      if (!mounted) return;
+      setState(() {
+        _categories =
+            _categories
+                .map((item) => item.id == updated.id ? updated : item)
+                .toList()
+              ..sort((a, b) => a.name.compareTo(b.name));
+      });
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
+      }
+    }
+  }
+
+  Future<void> _deleteCategory(ReferenceOption category) async {
+    int? replacement;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(_t('deleteCategory')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(category.name),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                initialValue: replacement,
+                decoration: InputDecoration(
+                  labelText: _t('replacementCategory'),
+                ),
+                items: _categories
+                    .where((item) => item.id != category.id)
+                    .map(
+                      (item) => DropdownMenuItem<int?>(
+                        value: item.id,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setDialogState(() => replacement = value),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(_t('cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(_t('delete')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final repository = ref.read(productsRepositoryProvider);
+      if (replacement == null) {
+        await repository.deleteCategory(category.id);
+      } else {
+        await repository.reassignAndDeleteCategory(category.id, replacement!);
+      }
+      if (!mounted) return;
+      setState(() {
+        _categories = _categories
+            .where((item) => item.id != category.id)
+            .toList();
+        if (_category == category.id) {
+          _category = replacement;
+        }
+      });
+    } on AppFailure catch (failure) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
+      }
+    }
+  }
+
+  Future<void> _manageCategories({
+    required bool canRename,
+    required bool canDelete,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, refreshSheet) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                title: Text(
+                  _t('manageCategories'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              ..._categories.map(
+                (category) => ListTile(
+                  title: Text(category.name),
+                  trailing: Wrap(
+                    children: [
+                      if (canRename)
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () async {
+                            await _renameCategory(category);
+                            refreshSheet(() {});
+                          },
+                        ),
+                      if (canDelete)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await _deleteCategory(category);
+                            refreshSheet(() {});
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _can(String permission) =>
+      ref.read(authControllerProvider).user?.can(permission) ?? false;
+
   Future<void> _submit() async {
     setState(() => _fieldErrors = const {});
     if (!_formKey.currentState!.validate() || _submitting) return;
@@ -248,12 +447,35 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ),
                 const SizedBox(height: 12),
                 FormSectionHeader(title: _t('sectionClassification')),
-                _ReferenceDropdown(
-                  label: _t('category'),
-                  value: _category,
-                  items: _categories,
-                  error: _fieldErrors['category'],
-                  onChanged: (v) => setState(() => _category = v),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _ReferenceDropdown(
+                        label: _t('category'),
+                        value: _category,
+                        items: _categories,
+                        error: _fieldErrors['category'],
+                        onChanged: (v) => setState(() => _category = v),
+                      ),
+                    ),
+                    if (_can(AppPermissions.addProduct))
+                      IconButton(
+                        tooltip: _t('newCategory'),
+                        onPressed: _createCategory,
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    if (_can(AppPermissions.changeProduct) ||
+                        _can(AppPermissions.deleteProduct))
+                      IconButton(
+                        tooltip: _t('manageCategories'),
+                        onPressed: () => _manageCategories(
+                          canRename: _can(AppPermissions.changeProduct),
+                          canDelete: _can(AppPermissions.deleteProduct),
+                        ),
+                        icon: const Icon(Icons.settings_outlined),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 _ReferenceDropdown(

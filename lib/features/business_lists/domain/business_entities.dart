@@ -303,6 +303,7 @@ class SaleDetails {
     required this.paymentStatus,
     required this.payments,
     required this.capabilities,
+    this.showLegalInformation = true,
     this.company = const SaleCompanyDetails(),
   });
   final int id;
@@ -310,6 +311,7 @@ class SaleDetails {
   final String taxAmount, total, amountPaid, balanceDue, paymentType;
   final String paymentTypeCode;
   final String paymentStatus;
+  final bool showLegalInformation;
   final SaleClientDetails client;
   final SaleCompanyDetails company;
   final List<SaleLineDetails> lines;
@@ -347,6 +349,7 @@ class SaleDetails {
           '',
       paymentTypeCode: json['payment_type']?.toString() ?? 'cash',
       paymentStatus: json['payment_status']?.toString() ?? '',
+      showLegalInformation: json['show_legal_information'] != false,
       payments: (json['payments'] as List? ?? const [])
           .whereType<Map>()
           .map(
@@ -536,11 +539,15 @@ class SaleWriteRequest {
     required this.taxRate,
     required this.paymentType,
     required this.payFull,
+    this.showLegalInformation = true,
+    this.amountReceived,
     required this.items,
   });
   final int clientId;
   final String discount, taxRate, paymentType;
   final bool payFull;
+  final bool showLegalInformation;
+  final String? amountReceived;
   final List<TransactionLineRequest> items;
   Map<String, dynamic> toJson() => {
     'client': clientId,
@@ -548,6 +555,8 @@ class SaleWriteRequest {
     'tax_rate': taxRate,
     'payment_type': paymentType,
     'pay_full': payFull,
+    'show_legal_information': showLegalInformation,
+    if (amountReceived != null) 'amount_received': amountReceived,
     'items': items.map((line) => line.saleJson()).toList(),
   };
 }

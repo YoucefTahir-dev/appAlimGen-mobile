@@ -82,6 +82,7 @@ class EscPosPrinterDriver implements PrinterDriver {
       return '$safeLeft${' ' * (columns - safeLeft.length - right.length)}$right';
     }
 
+    final showLegal = data['show_legal_information'] != false;
     final lines = <String>[
       '=' * columns,
       fit(company['name_fr']?.toString() ?? 'EL AMINE'),
@@ -89,26 +90,28 @@ class EscPosPrinterDriver implements PrinterDriver {
         fit(company['address'].toString()),
       if ((company['phone']?.toString() ?? '').isNotEmpty)
         fit('Tel: ${company['phone']}'),
-      if ((company['tax_number']?.toString() ?? '').isNotEmpty)
+      if (showLegal && (company['tax_number']?.toString() ?? '').isNotEmpty)
         fit('NIF: ${company['tax_number']}'),
-      if ((company['nis']?.toString() ?? '').isNotEmpty)
+      if (showLegal && (company['nis']?.toString() ?? '').isNotEmpty)
         fit('NIS: ${company['nis']}'),
-      if ((company['rc_number']?.toString() ?? '').isNotEmpty)
+      if (showLegal && (company['rc_number']?.toString() ?? '').isNotEmpty)
         fit('RC: ${company['rc_number']}'),
-      if ((company['article_number']?.toString() ?? '').isNotEmpty)
+      if (showLegal && (company['article_number']?.toString() ?? '').isNotEmpty)
         fit('AI: ${company['article_number']}'),
       '=' * columns,
       'FACTURE ${data['invoice_number'] ?? data['ticket_number'] ?? ''}',
       if ((data['issued_at']?.toString() ?? '').isNotEmpty)
         fit('Date: ${data['issued_at']}'),
       if (customer.isNotEmpty) fit('Client: ${customer['name'] ?? ''}'),
-      if ((customer['tax_number']?.toString() ?? '').isNotEmpty)
+      if (showLegal && (customer['tax_number']?.toString() ?? '').isNotEmpty)
         fit('NIF client: ${customer['tax_number']}'),
-      if ((customer['nis']?.toString() ?? '').isNotEmpty)
+      if (showLegal && (customer['nis']?.toString() ?? '').isNotEmpty)
         fit('NIS client: ${customer['nis']}'),
-      if ((customer['trade_register_number']?.toString() ?? '').isNotEmpty)
+      if (showLegal &&
+          (customer['trade_register_number']?.toString() ?? '').isNotEmpty)
         fit('RC client: ${customer['trade_register_number']}'),
-      if ((customer['article_number']?.toString() ?? '').isNotEmpty)
+      if (showLegal &&
+          (customer['article_number']?.toString() ?? '').isNotEmpty)
         fit('AI client: ${customer['article_number']}'),
       '-' * columns,
       for (final item in items) ...[

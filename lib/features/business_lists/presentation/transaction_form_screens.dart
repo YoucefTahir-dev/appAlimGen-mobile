@@ -1,6 +1,7 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/domain/sale_preview_totals.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/products/presentation/product_form_screen.dart';
@@ -98,6 +99,8 @@ class _LineDraft {
   double get total =>
       (int.tryParse(quantity.text) ?? 0) *
       (double.tryParse(price.text.replaceAll(',', '.')) ?? 0);
+  int get totalCents =>
+      SalePreviewTotals.lineTotalCents(quantity.text, price.text);
   void dispose() {
     quantity.dispose();
     price.dispose();
@@ -115,9 +118,11 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _discount;
   late final TextEditingController _tax;
+  late final TextEditingController _amountReceived;
   late final List<_LineDraft> _lines;
   TransactionOption? _client;
-  late bool _payFull;
+  String _settlement = 'none';
+  bool _showLegalInformation = true;
   bool _saving = false;
   String _paymentType = 'cash';
   String? _error;
@@ -128,6 +133,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
     final initial = widget.initial;
     _discount = TextEditingController(text: initial?.discount ?? '0');
     _tax = TextEditingController(text: initial?.taxRate ?? '0');
+    _amountReceived = TextEditingController();
     _lines = initial == null
         ? [_LineDraft()]
         : initial.lines.map((line) => _LineDraft(initial: line)).toList();
@@ -139,13 +145,15 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
       );
       _paymentType = initial.paymentTypeCode;
     }
-    _payFull = initial == null;
+    _settlement = initial == null ? 'full' : 'none';
+    _showLegalInformation = initial?.showLegalInformation ?? true;
   }
 
   @override
   void dispose() {
     _discount.dispose();
     _tax.dispose();
+    _amountReceived.dispose();
     for (final l in _lines) {
       l.dispose();
     }
@@ -249,7 +257,11 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
         discount: _discount.text,
         taxRate: _tax.text,
         paymentType: _paymentType,
-        payFull: _payFull,
+        payFull: _settlement == 'full',
+        amountReceived: _settlement == 'partial'
+            ? _amountReceived.text.replaceAll(',', '.')
+            : null,
+        showLegalInformation: _showLegalInformation,
         items: _lines
             .map(
               (l) => TransactionLineRequest(
@@ -353,6 +365,15 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
   @override
   Widget build(BuildContext context) {
     final t = SalesStrings.of(context);
+    final preview = SalePreviewTotals.calculate(
+      lineTotalsCents: _lines.map((line) => line.totalCents),
+      discount: _discount.text,
+      taxRate: _tax.text,
+      payFull: _settlement == 'full',
+      amountReceived: _settlement == 'partial' ? _amountReceived.text : '0',
+      existingPaid: widget.initial?.amountPaid ?? '0',
+    );
+    String money(int cents) => '${SalePreviewTotals.formatCents(cents)} DZD';
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.initial == null ? t('newSale') : t('editSale')),
@@ -452,7 +473,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
                       Align(
                         alignment: AlignmentDirectional.centerEnd,
                         child: Text(
-                          '${t('lineTotal')} : ${l.total.toStringAsFixed(2)} DZD',
+                          '${t('lineTotal')} : ${money(l.totalCents)}',
                         ),
                       ),
                     ],
@@ -465,18 +486,12 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
               icon: const Icon(Icons.add),
               label: Text(t('addProduct')),
             ),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: Text(
-                '${t('displayedTotal')} : ${_lines.fold<double>(0, (sum, line) => sum + line.total).toStringAsFixed(2)} DZD',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     controller: _discount,
+                    onChanged: (_) => setState(() {}),
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(labelText: t('discount')),
                   ),
@@ -485,16 +500,86 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _tax,
+                    onChanged: (_) => setState(() {}),
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(labelText: '${t('tax')} (%)'),
                   ),
                 ),
               ],
             ),
-            SwitchListTile(
-              value: _payFull,
-              onChanged: (v) => setState(() => _payFull = v),
-              title: Text(t('payFull')),
+            DropdownButtonFormField<String>(
+              initialValue: _settlement,
+              decoration: InputDecoration(labelText: t('settlementAtCreation')),
+              items: [
+                DropdownMenuItem(value: 'none', child: Text(t('unpaid'))),
+                DropdownMenuItem(
+                  value: 'partial',
+                  child: Text(t('payPartial')),
+                ),
+                DropdownMenuItem(value: 'full', child: Text(t('payFull'))),
+              ],
+              onChanged: (value) =>
+                  setState(() => _settlement = value ?? 'none'),
+            ),
+            if (_settlement == 'partial') ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _amountReceived,
+                onChanged: (_) => setState(() {}),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(labelText: t('amountReceived')),
+                validator: (value) {
+                  if (_settlement != 'partial') return null;
+                  final cents = SalePreviewTotals.parseMoneyCents(value ?? '');
+                  if (cents <= 0 ||
+                      cents >=
+                          preview.totalCents -
+                              SalePreviewTotals.parseMoneyCents(
+                                widget.initial?.amountPaid ?? '0',
+                              )) {
+                    return t('invalidPartialAmount');
+                  }
+                  return null;
+                },
+              ),
+            ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _PreviewTotalRow(
+                      label: t('subtotal'),
+                      value: money(preview.subtotalCents),
+                    ),
+                    _PreviewTotalRow(
+                      label: t('tax'),
+                      value: money(preview.taxCents),
+                    ),
+                    _PreviewTotalRow(
+                      label: t('discount'),
+                      value: money(preview.discountCents),
+                    ),
+                    const Divider(),
+                    _PreviewTotalRow(
+                      label: t('totalTtc'),
+                      value: money(preview.totalCents),
+                      emphasized: true,
+                    ),
+                    _PreviewTotalRow(
+                      label: t('paid'),
+                      value: money(preview.paidCents),
+                    ),
+                    _PreviewTotalRow(
+                      label: t('due'),
+                      value: money(preview.dueCents),
+                      emphasized: true,
+                    ),
+                  ],
+                ),
+              ),
             ),
             DropdownButtonFormField<String>(
               initialValue: _paymentType,
@@ -506,6 +591,14 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
               ],
               onChanged: (value) =>
                   setState(() => _paymentType = value ?? 'cash'),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _showLegalInformation,
+              onChanged: (value) =>
+                  setState(() => _showLegalInformation = value),
+              title: Text(t('showLegalInformation')),
+              subtitle: Text(t('officialInvoiceLegalNotice')),
             ),
             if (_error != null)
               Text(
@@ -520,6 +613,32 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PreviewTotalRow extends StatelessWidget {
+  const _PreviewTotalRow({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = emphasized ? Theme.of(context).textTheme.titleMedium : null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: style)),
+          Text(value, style: style),
+        ],
       ),
     );
   }
