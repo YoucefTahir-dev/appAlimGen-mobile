@@ -82,4 +82,27 @@ class ProductsRepository {
       throw _errors.map(error);
     }
   }
+
+  Future<ReferenceOption> createCategory(String name) async =>
+      ReferenceOption.fromJson(
+        await _crud.create('categories/', {'name': name}),
+      );
+
+  Future<ReferenceOption> renameCategory(int id, String name) async =>
+      ReferenceOption.fromJson(
+        await _crud.patch('categories/$id/', {'name': name}),
+      );
+
+  Future<void> deleteCategory(int id) => _crud.delete('categories/$id/');
+
+  Future<void> reassignAndDeleteCategory(int id, int replacementId) async {
+    try {
+      await _dio.post<dynamic>(
+        'categories/$id/reassign-delete/',
+        data: {'replacement': replacementId},
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
 }

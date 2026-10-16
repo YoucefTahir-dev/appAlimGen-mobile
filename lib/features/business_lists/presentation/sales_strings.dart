@@ -58,6 +58,16 @@ class SalesStrings {
       'serverPrice': 'Prix serveur',
       'addProduct': 'Ajouter produit',
       'payFull': 'Régler intégralement',
+      'payPartial': 'Régler partiellement',
+      'unpaid': 'Non réglée',
+      'settlementAtCreation': 'Règlement à l’enregistrement',
+      'amountReceived': 'Montant reçu',
+      'invalidPartialAmount':
+          'Le montant doit être supérieur à 0 et inférieur au reste à payer.',
+      'showLegalInformation':
+          'Afficher les informations légales sur tickets et bons',
+      'officialInvoiceLegalNotice':
+          'La facture officielle conserve toujours les mentions obligatoires.',
       'save': 'Enregistrer',
       'cash': 'Espèces',
       'cheque': 'Chèque',
@@ -146,6 +156,14 @@ class SalesStrings {
       'serverPrice': 'سعر الخادم',
       'addProduct': 'إضافة منتج',
       'payFull': 'دفع المبلغ كاملاً',
+      'payPartial': 'دفع جزئي',
+      'unpaid': 'غير مدفوعة',
+      'settlementAtCreation': 'الدفع عند التسجيل',
+      'amountReceived': 'المبلغ المستلم',
+      'invalidPartialAmount': 'يجب أن يكون المبلغ أكبر من 0 وأقل من المتبقي.',
+      'showLegalInformation': 'إظهار المعلومات القانونية في الإيصالات',
+      'officialInvoiceLegalNotice':
+          'تحتفظ الفاتورة الرسمية دائماً بالبيانات الإلزامية.',
       'save': 'حفظ',
       'cash': 'نقداً',
       'cheque': 'شيك',
@@ -234,6 +252,15 @@ class SalesStrings {
       'serverPrice': 'Server price',
       'addProduct': 'Add product',
       'payFull': 'Pay in full',
+      'payPartial': 'Pay partially',
+      'unpaid': 'Unpaid',
+      'settlementAtCreation': 'Payment on save',
+      'amountReceived': 'Amount received',
+      'invalidPartialAmount':
+          'Amount must be greater than 0 and less than the balance due.',
+      'showLegalInformation': 'Show legal information on receipts and notes',
+      'officialInvoiceLegalNotice':
+          'Official invoices always retain mandatory legal details.',
       'save': 'Save',
       'cash': 'Cash',
       'cheque': 'Cheque',
