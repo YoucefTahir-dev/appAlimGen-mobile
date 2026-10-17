@@ -201,6 +201,32 @@ class PurchasesRepository extends _BusinessRepository<PurchaseSummary> {
     }
   }
 
+  Future<PurchaseDetails> get(int id) async {
+    try {
+      final response = await dio.get<dynamic>('purchases/$id/');
+      return PurchaseDetails.fromJson(ApiEnvelope.object(response.data));
+    } catch (error) {
+      throw errors.map(error);
+    }
+  }
+
+  Future<PurchaseDetails> update(
+    int id,
+    PurchaseWriteRequest request,
+    String key,
+  ) async {
+    try {
+      final response = await dio.patch<dynamic>(
+        'purchases/$id/',
+        data: request.toJson(),
+        options: Options(headers: {'Idempotency-Key': key}),
+      );
+      return PurchaseDetails.fromJson(ApiEnvelope.object(response.data));
+    } catch (error) {
+      throw errors.map(error);
+    }
+  }
+
   Future<void> delete(int id) async {
     try {
       await dio.delete<dynamic>('purchases/$id/');
@@ -269,6 +295,14 @@ class ExpensesRepository extends _BusinessRepository<ExpenseSummary> {
       throw errors.map(error);
     }
   }
+
+  Future<BusinessOption> createCategory(String name) async =>
+      BusinessOption.fromJson(
+        await _crud.create('expense-categories/', {
+          'name': name,
+          'is_active': true,
+        }),
+      );
 }
 
 class PaymentsRepository extends _BusinessRepository<PaymentSummary> {

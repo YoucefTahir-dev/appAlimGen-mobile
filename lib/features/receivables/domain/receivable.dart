@@ -65,22 +65,27 @@ class ReceivablePayment {
     required this.date,
     required this.cancelled,
     required this.cancellationReason,
+    this.openingBalance = false,
   });
   final int id;
   final String reference, externalReference, amount, paymentType, date;
   final bool cancelled;
+  final bool openingBalance;
   final String cancellationReason;
-  factory ReceivablePayment.fromJson(Map<String, dynamic> json) =>
-      ReceivablePayment(
-        id: (json['id'] as num).toInt(),
-        reference: json['reference']?.toString() ?? '',
-        externalReference: json['external_reference']?.toString() ?? '',
-        amount: json['amount']?.toString() ?? '0.00',
-        paymentType: json['payment_type']?.toString() ?? '',
-        date: json['created_at']?.toString() ?? '',
-        cancelled: json['is_cancelled'] == true,
-        cancellationReason: json['cancellation_reason']?.toString() ?? '',
-      );
+  factory ReceivablePayment.fromJson(
+    Map<String, dynamic> json, {
+    bool openingBalance = false,
+  }) => ReceivablePayment(
+    id: (json['id'] as num).toInt(),
+    reference: json['reference']?.toString() ?? '',
+    externalReference: json['external_reference']?.toString() ?? '',
+    amount: json['amount']?.toString() ?? '0.00',
+    paymentType: json['payment_type']?.toString() ?? '',
+    date: json['created_at']?.toString() ?? '',
+    cancelled: json['is_cancelled'] == true,
+    cancellationReason: json['cancellation_reason']?.toString() ?? '',
+    openingBalance: openingBalance,
+  );
 }
 
 class ReceivableAccount {
@@ -90,12 +95,13 @@ class ReceivableAccount {
     required this.totalInvoiced,
     required this.totalPaid,
     required this.balanceDue,
+    required this.openingBalance,
     required this.unreconciledCount,
     required this.invoices,
     required this.payments,
   });
   final int clientId, unreconciledCount;
-  final String clientName, totalInvoiced, totalPaid, balanceDue;
+  final String clientName, totalInvoiced, totalPaid, balanceDue, openingBalance;
   final List<ReceivableInvoice> invoices;
   final List<ReceivablePayment> payments;
 
@@ -107,6 +113,7 @@ class ReceivableAccount {
       totalInvoiced: json['total_invoiced']?.toString() ?? '0.00',
       totalPaid: json['total_paid']?.toString() ?? '0.00',
       balanceDue: json['balance_due']?.toString() ?? '0.00',
+      openingBalance: json['opening_balance']?.toString() ?? '0.00',
       unreconciledCount:
           (json['unreconciled_invoice_count'] as num?)?.toInt() ?? 0,
       invoices: (json['invoices'] as List? ?? const [])
@@ -116,13 +123,19 @@ class ReceivableAccount {
             ),
           )
           .toList(growable: false),
-      payments: (json['payments'] as List? ?? const [])
-          .map(
-            (item) => ReceivablePayment.fromJson(
-              Map<String, dynamic>.from(item as Map),
-            ),
-          )
-          .toList(growable: false),
+      payments: [
+        ...(json['payments'] as List? ?? const []).map(
+          (item) => ReceivablePayment.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        ),
+        ...(json['opening_balance_payments'] as List? ?? const []).map(
+          (item) => ReceivablePayment.fromJson(
+            Map<String, dynamic>.from(item as Map),
+            openingBalance: true,
+          ),
+        ),
+      ],
     );
   }
 }

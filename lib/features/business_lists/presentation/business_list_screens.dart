@@ -15,6 +15,7 @@ import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sale_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/stock/presentation/stock_screens.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
 import 'package:flutter/material.dart';
@@ -618,6 +619,7 @@ class PurchasesScreen extends ConsumerWidget {
     final s = AppLocalizations.of(context);
     final user = ref.watch(authControllerProvider).user;
     final canAdd = user?.can(AppPermissions.addPurchase) ?? false;
+    final canEdit = user?.can(AppPermissions.changePurchase) ?? false;
     final canDelete = user?.can(AppPermissions.deletePurchase) ?? false;
     return ModuleScaffold(
       title: s.text('purchases'),
@@ -664,6 +666,12 @@ class PurchasesScreen extends ConsumerWidget {
                       icon: const Icon(Icons.delete_outline),
                       onPressed: () => _deletePurchase(context, ref, item.id),
                     ),
+                  if (canEdit)
+                    IconButton(
+                      tooltip: CrudStrings.of(context).text('edit'),
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => _editPurchase(context, ref, item.id),
+                    ),
                 ],
               ),
             ],
@@ -686,6 +694,37 @@ class PurchasesScreen extends ConsumerWidget {
             )
           : null,
     );
+  }
+
+  Future<void> _editPurchase(
+    BuildContext context,
+    WidgetRef ref,
+    int id,
+  ) async {
+    try {
+      final purchase = await ref.read(purchasesRepositoryProvider).get(id);
+      if (!context.mounted) return;
+      final changed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PurchaseFormScreen(initial: purchase),
+        ),
+      );
+      if (changed == true) {
+        await ref.read(purchasesProvider.notifier).refresh();
+        ref.invalidate(stockProvider);
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is AppFailure ? error.message : error.toString(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _deletePurchase(

@@ -251,6 +251,81 @@ void main() {
     adapter.onDelete('products/7/', (server) => server.reply(204, null));
     await repository.delete(7);
   });
+
+  test(
+    'prévisualise puis confirme une conversion de stock historique',
+    () async {
+      adapter.onGet(
+        'products/7/historical-conversion-preview/',
+        (server) => server.reply(200, {
+          'success': true,
+          'data': {
+            'factor': 24,
+            'depot_cartons_before': 7,
+            'depot_pieces_after': 168,
+            'minimum_cartons_before': 2,
+            'minimum_pieces_after': 48,
+            'eligible': true,
+            'blockers': const [],
+            'operator_locations': const [],
+          },
+        }),
+        queryParameters: {'factor': 24},
+      );
+      adapter.onPost(
+        'products/7/historical-conversion/',
+        (server) => server.reply(201, {
+          'success': true,
+          'data': {
+            'created': true,
+            'conversion_id': 3,
+            'product': _product()['data'],
+          },
+        }),
+        data: {
+          'factor': 24,
+          'backup_reference': 'backup-2026-10-17',
+          'confirm': true,
+        },
+      );
+
+      final preview = await repository.previewHistoricalConversion(7, 24);
+      expect(preview.eligible, isTrue);
+      expect(preview.depotAfter, 168);
+      final product = await repository.applyHistoricalConversion(
+        productId: 7,
+        factor: 24,
+        backupReference: 'backup-2026-10-17',
+      );
+      expect(product.id, 7);
+    },
+  );
+
+  test('transmet l’inventaire physique lors d’une correction', () async {
+    adapter.onPost(
+      'products/7/conditioning-correction/',
+      (server) => server.reply(200, {
+        'success': true,
+        'data': {'correction_id': 4, 'product': _product()['data']},
+      }),
+      data: {
+        'new_factor': 30,
+        'reason': 'Comptage réel',
+        'confirm': true,
+        'physical_depot_quantity': 210,
+        'physical_operator_quantities': {'9': 60},
+      },
+    );
+
+    final product = await repository.correctConditioning(
+      productId: 7,
+      factor: 30,
+      reason: 'Comptage réel',
+      physicalDepotQuantity: 210,
+      physicalOperatorQuantities: const {9: 60},
+    );
+    expect(product.id, 7);
+  });
   test('expose les erreurs de validation champ par champ', () async {
     adapter.onPost(
       'products/',

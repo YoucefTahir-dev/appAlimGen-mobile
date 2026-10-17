@@ -25,6 +25,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late final TextEditingController _wholesale;
   late final TextEditingController _retail;
   late final TextEditingController _quantity;
+  late final TextEditingController _initialCartons;
   late final TextEditingController _minimumStock;
   late final TextEditingController _description;
   late final TextEditingController _cartonFactor;
@@ -45,7 +46,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   ProductDetails? _initial;
   ProductPackagingDetails? _existingCarton;
   String _unitMode = 'piece_only';
-  String _stockUnit = 'base';
 
   bool get _usesCarton =>
       _unitMode == 'carton_only' || _unitMode == 'carton_and_piece';
@@ -61,6 +61,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _wholesale = TextEditingController();
     _retail = TextEditingController();
     _quantity = TextEditingController(text: '0');
+    _initialCartons = TextEditingController(text: '0');
     _minimumStock = TextEditingController(text: '0');
     _description = TextEditingController();
     _cartonFactor = TextEditingController(text: '1');
@@ -336,12 +337,283 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _can(String permission) =>
       ref.read(authControllerProvider).user?.can(permission) ?? false;
 
+  Future<void> _convertHistoricalStock() async {
+    final factor = TextEditingController(
+      text: '${_existingCarton?.conversionFactor ?? 30}',
+    );
+    final backup = TextEditingController();
+    final requested = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_t('convertHistoricalStock')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_t('conversionWarning')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: factor,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: _t('piecesPerCarton')),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: backup,
+              decoration: InputDecoration(labelText: _t('backupReference')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(_t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(_t('preview')),
+          ),
+        ],
+      ),
+    );
+    if (requested != true) {
+      factor.dispose();
+      backup.dispose();
+      return;
+    }
+    final parsedFactor = int.tryParse(factor.text) ?? 0;
+    final backupReference = backup.text.trim();
+    factor.dispose();
+    backup.dispose();
+    if (parsedFactor < 2 || backupReference.isEmpty) {
+      _showConditioningError(_t('conversionFieldsRequired'));
+      return;
+    }
+    try {
+      final repository = ref.read(productsRepositoryProvider);
+      final preview = await repository.previewHistoricalConversion(
+        widget.productId!,
+        parsedFactor,
+      );
+      if (!mounted) return;
+      if (!preview.eligible) {
+        _showConditioningError(
+          '${_t('conversionBlocked')}: ${preview.blockers.join(', ')}',
+        );
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(_t('confirmConversion')),
+          content: Text(
+            '${_t('depotStock')}: ${preview.depotBefore} Ã— ${preview.factor} = ${preview.depotAfter}\n'
+            '${_t('minimumStock')}: ${preview.minimumBefore} Ã— ${preview.factor} = ${preview.minimumAfter}\n'
+            '${_t('operatorLocations')}: ${preview.operatorLocations.length}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(_t('cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(_t('confirm')),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      await repository.applyHistoricalConversion(
+        productId: widget.productId!,
+        factor: parsedFactor,
+        backupReference: backupReference,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_t('conversionSuccess'))));
+      Navigator.pop(context, true);
+    } on AppFailure catch (failure) {
+      if (mounted) _showConditioningError(failure.message);
+    }
+  }
+
+  Future<void> _correctConditioning() async {
+    final factor = TextEditingController(
+      text: '${_existingCarton?.conversionFactor ?? 30}',
+    );
+    final reason = TextEditingController();
+    final requested = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_t('correctConditioning')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: factor,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: _t('piecesPerCarton')),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reason,
+              maxLines: 2,
+              decoration: InputDecoration(labelText: _t('correctionReason')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(_t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(_t('preview')),
+          ),
+        ],
+      ),
+    );
+    if (requested != true) {
+      factor.dispose();
+      reason.dispose();
+      return;
+    }
+    final parsedFactor = int.tryParse(factor.text) ?? 0;
+    final correctionReason = reason.text.trim();
+    factor.dispose();
+    reason.dispose();
+    if (parsedFactor < 2 || correctionReason.isEmpty) {
+      _showConditioningError(_t('conversionFieldsRequired'));
+      return;
+    }
+    try {
+      final repository = ref.read(productsRepositoryProvider);
+      final preview = await repository.previewConditioningCorrection(
+        widget.productId!,
+        parsedFactor,
+      );
+      if (!mounted) return;
+      int? physicalDepot;
+      Map<int, int>? physicalOperators;
+      if (preview.requiresPhysicalInventory) {
+        final depotController = TextEditingController(
+          text: '${preview.currentDepotQuantity}',
+        );
+        final operatorControllers = {
+          for (final location in preview.operatorLocations)
+            location.operatorId: TextEditingController(
+              text: '${location.currentQuantity}',
+            ),
+        };
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(_t('physicalInventoryRequired')),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_t('physicalInventoryExplanation')),
+                  TextField(
+                    controller: depotController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: _t('depotStock')),
+                  ),
+                  ...preview.operatorLocations.map(
+                    (location) => TextField(
+                      controller: operatorControllers[location.operatorId],
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: location.operatorName,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(_t('cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(_t('confirm')),
+              ),
+            ],
+          ),
+        );
+        physicalDepot = int.tryParse(depotController.text);
+        physicalOperators = {};
+        for (final entry in operatorControllers.entries) {
+          final value = int.tryParse(entry.value.text);
+          if (value != null) physicalOperators[entry.key] = value;
+        }
+        depotController.dispose();
+        for (final controller in operatorControllers.values) {
+          controller.dispose();
+        }
+        if (confirmed != true ||
+            physicalDepot == null ||
+            physicalOperators.length != preview.operatorLocations.length) {
+          return;
+        }
+      } else {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(_t('confirmCorrection')),
+            content: Text(
+              '${_t('depotStock')}: ${preview.currentDepotQuantity} â†’ ${preview.depotTarget}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(_t('cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(_t('confirm')),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+      }
+      await repository.correctConditioning(
+        productId: widget.productId!,
+        factor: parsedFactor,
+        reason: correctionReason,
+        physicalDepotQuantity: physicalDepot,
+        physicalOperatorQuantities: physicalOperators,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_t('correctionSuccess'))));
+      Navigator.pop(context, true);
+    } on AppFailure catch (failure) {
+      if (mounted) _showConditioningError(failure.message);
+    }
+  }
+
+  void _showConditioningError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _submit() async {
     setState(() => _fieldErrors = const {});
     if (!_formKey.currentState!.validate() || _submitting) return;
     setState(() => _submitting = true);
-    final enteredQuantity = int.parse(_quantity.text);
     final factor = int.tryParse(_cartonFactor.text) ?? 1;
+    final enteredPieces = int.parse(_quantity.text);
+    final enteredCartons = !_editing && _usesCarton
+        ? int.parse(_initialCartons.text)
+        : 0;
     final request = ProductWriteRequest(
       name: _name.text.trim(),
       category: _category,
@@ -351,9 +623,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       superWholesalePrice: _superWholesale.text.replaceAll(',', '.'),
       wholesalePrice: _wholesale.text.replaceAll(',', '.'),
       retailPrice: _retail.text.replaceAll(',', '.'),
-      quantity: !_editing && _stockUnit == 'carton'
-          ? enteredQuantity * factor
-          : enteredQuantity,
+      quantity: enteredPieces + (enteredCartons * factor),
       minimumStock: int.parse(_minimumStock.text),
       description: _description.text.trim(),
       unitMode: _unitMode,
@@ -500,6 +770,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   initialValue: _unitMode,
                   decoration: _decoration(_t('unitMode'), 'unit_mode'),
                   items: [
+                    if (_unitMode == 'legacy')
+                      DropdownMenuItem(
+                        value: 'legacy',
+                        child: Text(_t('historicalUnconfirmed')),
+                      ),
                     DropdownMenuItem(
                       value: 'piece_only',
                       child: Text(_t('pieceOnly')),
@@ -513,8 +788,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       child: Text(_t('cartonAndPiece')),
                     ),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _unitMode = value ?? 'piece_only'),
+                  onChanged: _unitMode == 'legacy'
+                      ? null
+                      : (value) =>
+                            setState(() => _unitMode = value ?? 'piece_only'),
                 ),
                 if (_usesCarton) ...[
                   const SizedBox(height: 12),
@@ -639,36 +916,38 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ],
                 const SizedBox(height: 12),
                 FormSectionHeader(title: _t('sectionStock')),
-                if (!_editing && _usesCarton)
-                  DropdownButtonFormField<String>(
-                    initialValue: _stockUnit,
-                    decoration: _decoration(_t('stockInputUnit'), 'stock_unit'),
-                    items: [
-                      DropdownMenuItem(
-                        value: 'base',
-                        child: Text(_t('pieces')),
-                      ),
-                      DropdownMenuItem(
-                        value: 'carton',
-                        child: Text(_t('carton')),
-                      ),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _stockUnit = value ?? 'base'),
+                if (!_editing && _usesCarton) ...[
+                  TextFormField(
+                    key: const Key('initial-cartons-field'),
+                    controller: _initialCartons,
+                    decoration: _decoration(
+                      _t('initialCartons'),
+                      'initial_cartons',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: _integer,
+                    onChanged: (_) => setState(() {}),
                   ),
-                if (!_editing && _usesCarton) const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 TextFormField(
+                  key: const Key('initial-pieces-field'),
                   controller: _quantity,
-                  decoration: _decoration(_t('quantity'), 'quantity'),
+                  decoration: _decoration(
+                    !_editing && _usesCarton
+                        ? _t('initialPieces')
+                        : _t('quantity'),
+                    'quantity',
+                  ),
                   keyboardType: TextInputType.number,
                   validator: _integer,
                   onChanged: (_) => setState(() {}),
                 ),
-                if (!_editing && _stockUnit == 'carton' && _usesCarton)
+                if (!_editing && _usesCarton)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      '${_t('canonicalStock')} : ${(int.tryParse(_quantity.text) ?? 0) * (int.tryParse(_cartonFactor.text) ?? 0)} ${_t('pieces')}',
+                      '${_t('canonicalStock')} : ${((int.tryParse(_initialCartons.text) ?? 0) * (int.tryParse(_cartonFactor.text) ?? 0)) + (int.tryParse(_quantity.text) ?? 0)} ${_t('pieces')}',
                     ),
                   ),
                 const SizedBox(height: 12),
@@ -686,6 +965,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   maxLines: 3,
                 ),
                 const SizedBox(height: 20),
+                if (_editing &&
+                    _can(AppPermissions.regularizeProductConditioning)) ...[
+                  if (_initial!.unitMode == 'legacy')
+                    OutlinedButton.icon(
+                      key: const Key('convert-historical-stock'),
+                      onPressed: _submitting ? null : _convertHistoricalStock,
+                      icon: const Icon(Icons.swap_horiz),
+                      label: Text(_t('convertHistoricalStock')),
+                    )
+                  else if (_initial!.hasHistoricalConversion)
+                    OutlinedButton.icon(
+                      key: const Key('correct-conditioning'),
+                      onPressed: _submitting ? null : _correctConditioning,
+                      icon: const Icon(Icons.rule),
+                      label: Text(_t('correctConditioning')),
+                    ),
+                  const SizedBox(height: 12),
+                ],
                 FilledButton.icon(
                   onPressed: _submitting ? null : _submit,
                   icon: _submitting
@@ -710,6 +1007,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _wholesale,
       _retail,
       _quantity,
+      _initialCartons,
       _minimumStock,
       _description,
       _cartonFactor,

@@ -22,6 +22,16 @@ class StockRepository {
     query: query,
     decode: ProductSummary.fromJson,
   );
+
+  Future<PageData<StockMovementSummary>> movements({required int page}) =>
+      loadApiPage(
+        dio: _dio,
+        errors: _errors,
+        path: 'stock/movements/',
+        page: page,
+        query: '',
+        decode: StockMovementSummary.fromJson,
+      );
 }
 
 class OperatorStockRepository {

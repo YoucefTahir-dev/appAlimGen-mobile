@@ -27,6 +27,23 @@ class AppLocalizations {
       'enabled': 'Activée',
       'disabled': 'Désactivée',
       'security': 'Sécurité',
+      'changePassword': 'Changer le mot de passe',
+      'currentPassword': 'Mot de passe actuel',
+      'newPassword': 'Nouveau mot de passe',
+      'confirmPassword': 'Confirmer le mot de passe',
+      'passwordTooShort':
+          'Le mot de passe doit contenir au moins 8 caractères.',
+      'passwordMismatch': 'Les mots de passe ne correspondent pas.',
+      'passwordChangedReconnect':
+          'Mot de passe modifié. Reconnectez-vous avec le nouveau mot de passe.',
+      'requiredField': 'Ce champ est obligatoire.',
+      'save': 'Enregistrer',
+      'automaticAllocation':
+          'Le règlement sera affecté automatiquement aux factures les plus anciennes.',
+      'amountAboveClientDebt':
+          'Le montant dépasse le total des créances du client.',
+      'stockMovements': 'Mouvements de stock',
+      'openingBalance': 'Créance antérieure restante',
       'biometricSettingDescription':
           'La biométrie reste locale à cet appareil et ne remplace pas la session sécurisée du serveur.',
       'biometricEnabled': 'Connexion biométrique activée.',
@@ -206,6 +223,21 @@ class AppLocalizations {
       'enabled': 'مفعّلة',
       'disabled': 'معطّلة',
       'security': 'الأمان',
+      'changePassword': 'تغيير كلمة المرور',
+      'currentPassword': 'كلمة المرور الحالية',
+      'newPassword': 'كلمة المرور الجديدة',
+      'confirmPassword': 'تأكيد كلمة المرور',
+      'passwordTooShort': 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.',
+      'passwordMismatch': 'كلمتا المرور غير متطابقتين.',
+      'passwordChangedReconnect':
+          'تم تغيير كلمة المرور. أعد تسجيل الدخول بكلمة المرور الجديدة.',
+      'requiredField': 'هذا الحقل مطلوب.',
+      'save': 'حفظ',
+      'automaticAllocation':
+          'سيتم توزيع الدفعة تلقائياً على أقدم الفواتير غير المسددة.',
+      'amountAboveClientDebt': 'المبلغ أكبر من إجمالي ديون العميل.',
+      'stockMovements': 'حركات المخزون',
+      'openingBalance': 'الدين السابق المتبقي',
       'biometricSettingDescription':
           'تبقى البيانات البيومترية محلية على الجهاز ولا تستبدل جلسة الخادم الآمنة.',
       'biometricEnabled': 'تم تفعيل تسجيل الدخول بالبصمة.',
@@ -379,6 +411,22 @@ class AppLocalizations {
       'enabled': 'Enabled',
       'disabled': 'Disabled',
       'security': 'Security',
+      'changePassword': 'Change password',
+      'currentPassword': 'Current password',
+      'newPassword': 'New password',
+      'confirmPassword': 'Confirm password',
+      'passwordTooShort': 'The password must contain at least 8 characters.',
+      'passwordMismatch': 'Passwords do not match.',
+      'passwordChangedReconnect':
+          'Password changed. Sign in again with the new password.',
+      'requiredField': 'This field is required.',
+      'save': 'Save',
+      'automaticAllocation':
+          'The payment will be allocated automatically to the oldest invoices.',
+      'amountAboveClientDebt':
+          'The amount exceeds the client’s total outstanding debt.',
+      'stockMovements': 'Stock movements',
+      'openingBalance': 'Remaining prior debt',
       'biometricSettingDescription':
           'Biometric data stays on this device and does not replace the secure server session.',
       'biometricEnabled': 'Biometric sign-in enabled.',

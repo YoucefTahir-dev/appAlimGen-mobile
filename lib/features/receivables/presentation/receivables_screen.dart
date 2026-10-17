@@ -3,7 +3,6 @@ import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
-import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/receivables/domain/receivable.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -260,6 +259,15 @@ class _ReceivableDetailScreenState
             ),
           ],
         ),
+        if (double.tryParse(account.openingBalance) case final opening?
+            when opening > 0)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.history),
+              title: Text(t.text('openingBalance')),
+              trailing: Text('${account.openingBalance} DZD'),
+            ),
+          ),
         if (account.unreconciledCount > 0)
           Card(
             color: Colors.amber.shade50,
@@ -292,7 +300,11 @@ class _ReceivableDetailScreenState
             subtitle: Text(
               payment.cancelled
                   ? '${t.text('cancelled')}: ${payment.cancellationReason}'
-                  : payment.externalReference,
+                  : [
+                      if (payment.openingBalance) t.text('openingBalance'),
+                      if (payment.externalReference.isNotEmpty)
+                        payment.externalReference,
+                    ].join(' · '),
             ),
             trailing: canCancel && !payment.cancelled
                 ? IconButton(
@@ -310,10 +322,12 @@ class _ReceivableDetailScreenState
 
   Future<void> _addPayment() async {
     final account = _account!;
-    final invoices = account.invoices.where((item) => !item.isPaid).toList();
     final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => _PaymentDialog(invoices: invoices),
+      builder: (_) => _PaymentDialog(
+        clientId: account.clientId,
+        balanceDue: account.balanceDue,
+      ),
     );
     if (saved == true) await _load();
   }
@@ -343,9 +357,19 @@ class _ReceivableDetailScreenState
       ),
     );
     if (confirmed == true && reason.text.trim().isNotEmpty) {
-      await ref
-          .read(paymentsRepositoryProvider)
-          .cancel(payment.id, reason.text.trim());
+      if (payment.openingBalance) {
+        await ref
+            .read(receivablesRepositoryProvider)
+            .cancelOpeningPayment(
+              clientId: widget.clientId,
+              paymentId: payment.id,
+              reason: reason.text.trim(),
+            );
+      } else {
+        await ref
+            .read(paymentsRepositoryProvider)
+            .cancel(payment.id, reason.text.trim());
+      }
       await _load();
     }
     reason.dispose();
@@ -353,8 +377,9 @@ class _ReceivableDetailScreenState
 }
 
 class _PaymentDialog extends ConsumerStatefulWidget {
-  const _PaymentDialog({required this.invoices});
-  final List<ReceivableInvoice> invoices;
+  const _PaymentDialog({required this.clientId, required this.balanceDue});
+  final int clientId;
+  final String balanceDue;
   @override
   ConsumerState<_PaymentDialog> createState() => _PaymentDialogState();
 }
@@ -364,7 +389,6 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   final _amount = TextEditingController();
   final _reference = TextEditingController();
   final _notes = TextEditingController();
-  late int _invoiceId = widget.invoices.first.id;
   String _type = 'cash';
   bool _saving = false;
   String? _error;
@@ -382,17 +406,15 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
     setState(() => _saving = true);
     try {
       await ref
-          .read(paymentsRepositoryProvider)
-          .create(
-            PaymentWriteRequest(
-              saleId: _invoiceId,
-              amount: _amount.text,
-              paymentType: _type,
-              createdAt: DateTime.now().toIso8601String(),
-              externalReference: _reference.text.trim(),
-              notes: _notes.text.trim(),
-            ),
-            const Uuid().v4(),
+          .read(receivablesRepositoryProvider)
+          .allocatePayment(
+            clientId: widget.clientId,
+            amount: _amount.text.replaceAll(',', '.'),
+            paymentType: _type,
+            createdAt: DateTime.now().toIso8601String(),
+            externalReference: _reference.text.trim(),
+            notes: _notes.text.trim(),
+            idempotencyKey: const Uuid().v4(),
           );
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
@@ -417,18 +439,9 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<int>(
-                initialValue: _invoiceId,
-                decoration: InputDecoration(labelText: t.text('invoice')),
-                items: widget.invoices
-                    .map(
-                      (item) => DropdownMenuItem(
-                        value: item.id,
-                        child: Text('${item.number} — ${item.balance} DZD'),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) => _invoiceId = value ?? _invoiceId,
+              Text(
+                '${t.text('automaticAllocation')}\n'
+                '${t.text('due')}: ${widget.balanceDue} DZD',
               ),
               TextFormField(
                 controller: _amount,
@@ -436,9 +449,17 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(labelText: t.text('amount')),
-                validator: (value) => (double.tryParse(value ?? '') ?? 0) > 0
-                    ? null
-                    : t.text('invalidAmount'),
+                validator: (value) {
+                  final amount = double.tryParse(
+                    (value ?? '').replaceAll(',', '.'),
+                  );
+                  final due = double.tryParse(widget.balanceDue) ?? 0;
+                  if (amount == null || amount <= 0) {
+                    return t.text('invalidAmount');
+                  }
+                  if (amount > due) return t.text('amountAboveClientDebt');
+                  return null;
+                },
               ),
               DropdownButtonFormField<String>(
                 initialValue: _type,

@@ -141,4 +141,22 @@ void main() {
       newPasswordConfirm: 'New-password-2041!',
     );
   });
+
+  test('change le mot de passe avec le contrat API Django', () async {
+    adapter.onPost(
+      'auth/password/change/',
+      (server) => server.reply(200, envelope({'message': 'OK'})),
+      data: {
+        'current_password': 'Old-password-2041!',
+        'new_password': 'New-password-2041!',
+        'new_password_confirm': 'New-password-2041!',
+      },
+    );
+
+    await repository.changePassword(
+      currentPassword: 'Old-password-2041!',
+      newPassword: 'New-password-2041!',
+      newPasswordConfirm: 'New-password-2041!',
+    );
+  });
 }

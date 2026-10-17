@@ -48,6 +48,8 @@ class ProductDetails {
     required this.minimumStock,
     required this.description,
     required this.unitMode,
+    required this.conditioningStatus,
+    required this.hasHistoricalConversion,
     required this.packagings,
     this.category,
     this.brand,
@@ -69,6 +71,8 @@ class ProductDetails {
   final int minimumStock;
   final String description;
   final String unitMode;
+  final String conditioningStatus;
+  final bool hasHistoricalConversion;
   final List<ProductPackagingDetails> packagings;
 
   factory ProductDetails.fromJson(Map<String, dynamic> json) => ProductDetails(
@@ -87,6 +91,9 @@ class ProductDetails {
     minimumStock: (json['minimum_stock'] as num?)?.toInt() ?? 0,
     description: json['description']?.toString() ?? '',
     unitMode: json['unit_mode']?.toString() ?? 'legacy',
+    conditioningStatus:
+        json['conditioning_status']?.toString() ?? 'unclassified',
+    hasHistoricalConversion: json['has_historical_conversion'] == true,
     packagings: (json['conditionnements'] as List? ?? const [])
         .whereType<Map>()
         .map(
@@ -206,4 +213,99 @@ class ProductPackagingWriteRequest {
     'sale_enabled': true,
     'is_active': isActive,
   };
+}
+
+class HistoricalConversionLocation {
+  const HistoricalConversionLocation({
+    required this.operatorId,
+    required this.operatorName,
+    required this.currentQuantity,
+    this.targetQuantity,
+  });
+
+  final int operatorId, currentQuantity;
+  final int? targetQuantity;
+  final String operatorName;
+
+  factory HistoricalConversionLocation.fromJson(Map<String, dynamic> json) =>
+      HistoricalConversionLocation(
+        operatorId: (json['operator_id'] as num).toInt(),
+        operatorName: json['operator_name']?.toString() ?? '',
+        currentQuantity:
+            (json['current_quantity'] as num?)?.toInt() ??
+            (json['cartons_before'] as num?)?.toInt() ??
+            0,
+        targetQuantity:
+            (json['target_quantity'] as num?)?.toInt() ??
+            (json['pieces_after'] as num?)?.toInt(),
+      );
+}
+
+class HistoricalConversionPreview {
+  const HistoricalConversionPreview({
+    required this.factor,
+    required this.depotBefore,
+    required this.depotAfter,
+    required this.minimumBefore,
+    required this.minimumAfter,
+    required this.eligible,
+    required this.blockers,
+    required this.operatorLocations,
+  });
+
+  final int factor, depotBefore, depotAfter, minimumBefore, minimumAfter;
+  final bool eligible;
+  final List<String> blockers;
+  final List<HistoricalConversionLocation> operatorLocations;
+
+  factory HistoricalConversionPreview.fromJson(Map<String, dynamic> json) =>
+      HistoricalConversionPreview(
+        factor: (json['factor'] as num).toInt(),
+        depotBefore: (json['depot_cartons_before'] as num?)?.toInt() ?? 0,
+        depotAfter: (json['depot_pieces_after'] as num?)?.toInt() ?? 0,
+        minimumBefore: (json['minimum_cartons_before'] as num?)?.toInt() ?? 0,
+        minimumAfter: (json['minimum_pieces_after'] as num?)?.toInt() ?? 0,
+        eligible: json['eligible'] == true,
+        blockers: (json['blockers'] as List? ?? const [])
+            .map((item) => item.toString())
+            .toList(growable: false),
+        operatorLocations: (json['operator_locations'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (item) => HistoricalConversionLocation.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false),
+      );
+}
+
+class ConditioningCorrectionPreview {
+  const ConditioningCorrectionPreview({
+    required this.requiresPhysicalInventory,
+    required this.currentDepotQuantity,
+    this.depotTarget,
+    required this.operatorLocations,
+  });
+
+  final bool requiresPhysicalInventory;
+  final int currentDepotQuantity;
+  final int? depotTarget;
+  final List<HistoricalConversionLocation> operatorLocations;
+
+  factory ConditioningCorrectionPreview.fromJson(Map<String, dynamic> json) =>
+      ConditioningCorrectionPreview(
+        requiresPhysicalInventory: json['requires_physical_inventory'] == true,
+        currentDepotQuantity:
+            (json['current_depot_quantity'] as num?)?.toInt() ?? 0,
+        depotTarget: (json['depot_target'] as num?)?.toInt(),
+        operatorLocations: (json['operator_locations'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (item) => HistoricalConversionLocation.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false),
+      );
 }

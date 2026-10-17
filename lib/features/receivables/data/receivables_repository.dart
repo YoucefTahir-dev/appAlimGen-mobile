@@ -40,4 +40,48 @@ class ReceivablesRepository {
       throw _errors.map(error);
     }
   }
+
+  Future<void> allocatePayment({
+    required int clientId,
+    required String amount,
+    required String paymentType,
+    required String idempotencyKey,
+    String? createdAt,
+    String? externalReference,
+    String? notes,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'amount': amount,
+        'payment_type': paymentType,
+      };
+      if (createdAt != null) payload['created_at'] = createdAt;
+      if (externalReference != null) {
+        payload['external_reference'] = externalReference;
+      }
+      if (notes != null) payload['notes'] = notes;
+      await _dio.post<dynamic>(
+        'receivables/$clientId/allocate-payment/',
+        data: payload,
+        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
+  Future<void> cancelOpeningPayment({
+    required int clientId,
+    required int paymentId,
+    required String reason,
+  }) async {
+    try {
+      await _dio.post<dynamic>(
+        'receivables/$clientId/cancel-opening-payment/',
+        data: {'payment_id': paymentId, 'reason': reason},
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
 }

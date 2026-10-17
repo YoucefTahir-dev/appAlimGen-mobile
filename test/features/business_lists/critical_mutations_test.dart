@@ -120,6 +120,60 @@ void main() {
     expect(body, isNot(contains('invoice_number')));
     expect(body, isNot(contains('total')));
   });
+
+  test(
+    'modification achat transmet le remplacement complet des lignes',
+    () async {
+      final adapter = _CapturingAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'))
+        ..httpClientAdapter = adapter;
+
+      final purchase = await PurchasesRepository(dio, const ErrorMapper())
+          .update(
+            8,
+            const PurchaseWriteRequest(
+              supplierId: 3,
+              reference: 'ACH-8-MOD',
+              taxRate: '19.00',
+              items: [
+                TransactionLineRequest(
+                  productId: 4,
+                  packagingId: 9,
+                  quantity: 3,
+                  unitPrice: '80.00',
+                ),
+              ],
+            ),
+            'stable-purchase-update',
+          );
+
+      final request = adapter.requests.single;
+      expect(request.method, 'PATCH');
+      expect(request.path, endsWith('purchases/8/'));
+      expect(request.headers['Idempotency-Key'], 'stable-purchase-update');
+      final body = Map<String, dynamic>.from(request.data as Map);
+      expect(body['reference'], 'ACH-8-MOD');
+      expect((body['items'] as List).single['packaging_id'], 9);
+      expect(purchase.lines.single.quantity, 3);
+    },
+  );
+
+  test('création rapide d\'une catégorie de charge', () async {
+    final adapter = _CapturingAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api/v1/'))
+      ..httpClientAdapter = adapter;
+
+    final category = await ExpensesRepository(
+      dio,
+      const ErrorMapper(),
+    ).createCategory('Transport');
+
+    final request = adapter.requests.single;
+    expect(request.method, 'POST');
+    expect(request.path, endsWith('expense-categories/'));
+    expect(request.data, {'name': 'Transport', 'is_active': true});
+    expect(category.name, 'Transport');
+  });
 }
 
 class _CapturingAdapter implements HttpClientAdapter {
@@ -139,7 +193,7 @@ class _CapturingAdapter implements HttpClientAdapter {
       'payment_status': 'paid',
     };
     final data = switch (options.path) {
-      final path when path.endsWith('/sales/8/') => {
+      final path when path.endsWith('sales/8/') => {
         ...common,
         'invoice_number': 'FAC-8',
         'ticket_number': 'TCK-8',
@@ -149,15 +203,39 @@ class _CapturingAdapter implements HttpClientAdapter {
         'payments': const [],
         'capabilities': const {},
       },
-      final path when path.endsWith('/sales/') => {
+      final path when path.endsWith('sales/') => {
         ...common,
         'invoice_number': 'FAC-1',
         'client': 2,
       },
-      final path when path.endsWith('/purchases/') => {
+      final path when path.endsWith('purchases/8/') => {
+        ...common,
+        'reference': 'ACH-8-MOD',
+        'supplier': 3,
+        'supplier_name': 'Fournisseur',
+        'tax_rate': '19.00',
+        'amount_paid': '0.00',
+        'balance_due': '285.60',
+        'lines': [
+          {
+            'id': 11,
+            'product': {'id': 4, 'name': 'Produit'},
+            'quantity': 72,
+            'packaging_id': 9,
+            'packaging_name': 'Carton',
+            'packaging_quantity': 3,
+            'purchase_price': '80.00',
+          },
+        ],
+      },
+      final path when path.endsWith('purchases/') => {
         ...common,
         'reference': 'ACH-1',
         'supplier': 3,
+      },
+      final path when path.endsWith('expense-categories/') => {
+        'id': 17,
+        'name': 'Transport',
       },
       _ => {
         'id': 1,

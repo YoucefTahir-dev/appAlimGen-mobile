@@ -105,4 +105,100 @@ class ProductsRepository {
       throw _errors.map(error);
     }
   }
+
+  Future<HistoricalConversionPreview> previewHistoricalConversion(
+    int productId,
+    int factor,
+  ) async {
+    try {
+      final response = await _dio.get<dynamic>(
+        '$path$productId/historical-conversion-preview/',
+        queryParameters: {'factor': factor},
+      );
+      return HistoricalConversionPreview.fromJson(
+        Map<String, dynamic>.from(ApiEnvelope.data(response.data) as Map),
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
+  Future<ProductDetails> applyHistoricalConversion({
+    required int productId,
+    required int factor,
+    required String backupReference,
+  }) async {
+    try {
+      final response = await _dio.post<dynamic>(
+        '$path$productId/historical-conversion/',
+        data: {
+          'factor': factor,
+          'backup_reference': backupReference,
+          'confirm': true,
+        },
+      );
+      final data = Map<String, dynamic>.from(
+        ApiEnvelope.data(response.data) as Map,
+      );
+      return ProductDetails.fromJson(
+        Map<String, dynamic>.from(data['product'] as Map),
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
+  Future<ConditioningCorrectionPreview> previewConditioningCorrection(
+    int productId,
+    int factor,
+  ) async {
+    try {
+      final response = await _dio.get<dynamic>(
+        '$path$productId/conditioning-correction-preview/',
+        queryParameters: {'new_factor': factor},
+      );
+      return ConditioningCorrectionPreview.fromJson(
+        Map<String, dynamic>.from(ApiEnvelope.data(response.data) as Map),
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
+  Future<ProductDetails> correctConditioning({
+    required int productId,
+    required int factor,
+    required String reason,
+    int? physicalDepotQuantity,
+    Map<int, int>? physicalOperatorQuantities,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'new_factor': factor,
+        'reason': reason,
+        'confirm': true,
+      };
+      if (physicalDepotQuantity != null) {
+        payload['physical_depot_quantity'] = physicalDepotQuantity;
+      }
+      if (physicalOperatorQuantities != null) {
+        payload['physical_operator_quantities'] = {
+          for (final entry in physicalOperatorQuantities.entries)
+            entry.key.toString(): entry.value,
+        };
+      }
+      final response = await _dio.post<dynamic>(
+        '$path$productId/conditioning-correction/',
+        data: payload,
+      );
+      final data = Map<String, dynamic>.from(
+        ApiEnvelope.data(response.data) as Map,
+      );
+      return ProductDetails.fromJson(
+        Map<String, dynamic>.from(data['product'] as Map),
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
 }

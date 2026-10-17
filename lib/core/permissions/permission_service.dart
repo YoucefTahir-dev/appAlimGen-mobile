@@ -6,6 +6,8 @@ class AppPermissions {
   static const changeProduct = 'inventory.change_product';
   static const deleteProduct = 'inventory.delete_product';
   static const productPricing = 'inventory.view_product_pricing';
+  static const regularizeProductConditioning =
+      'inventory.regularize_product_conditioning';
   static const clients = 'inventory.view_client';
   static const addClient = 'inventory.add_client';
   static const changeClient = 'inventory.change_client';
@@ -40,6 +42,7 @@ class AppPermissions {
   static const addExpense = 'expenses.add_expense';
   static const changeExpense = 'expenses.change_expense';
   static const deleteExpense = 'expenses.delete_expense';
+  static const addExpenseCategory = 'expenses.add_expensecategory';
   static const printers = 'printing.view_printerprofile';
   static const addPrinter = 'printing.add_printerprofile';
   static const changePrinter = 'printing.change_printerprofile';

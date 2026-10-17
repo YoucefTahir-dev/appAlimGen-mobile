@@ -38,6 +38,21 @@ final operatorStockProvider =
       PagedListState<OperatorStockSummary>
     >(OperatorStockController.new);
 
+class StockMovementsController
+    extends PagedListController<StockMovementSummary> {
+  @override
+  Future<PageData<StockMovementSummary>> fetchPage({
+    required int page,
+    required String query,
+  }) => ref.read(stockRepositoryProvider).movements(page: page);
+}
+
+final stockMovementsProvider =
+    NotifierProvider<
+      StockMovementsController,
+      PagedListState<StockMovementSummary>
+    >(StockMovementsController.new);
+
 class StockScreen extends StatelessWidget {
   const StockScreen({super.key});
   @override
@@ -46,6 +61,16 @@ class StockScreen extends StatelessWidget {
     return ModuleScaffold(
       title: s.text('stock'),
       path: '/stock',
+      actions: [
+        IconButton(
+          tooltip: s.text('stockMovements'),
+          icon: const Icon(Icons.history),
+          onPressed: () => Navigator.push<void>(
+            context,
+            MaterialPageRoute(builder: (_) => const StockMovementsScreen()),
+          ),
+        ),
+      ],
       body: PagedListBody<ProductSummary, StockController>(
         provider: stockProvider,
         searchable: true,
@@ -96,6 +121,41 @@ class StockScreen extends StatelessWidget {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class StockMovementsScreen extends StatelessWidget {
+  const StockMovementsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(strings.text('stockMovements'))),
+      body: PagedListBody<StockMovementSummary, StockMovementsController>(
+        provider: stockMovementsProvider,
+        emptyIcon: Icons.history_toggle_off,
+        itemBuilder: (context, movement) => AppCard(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: CircleAvatar(
+              child: Text(
+                movement.appliedDelta >= 0
+                    ? '+${movement.appliedDelta}'
+                    : '${movement.appliedDelta}',
+              ),
+            ),
+            title: Text(movement.productName),
+            subtitle: Text(
+              '${movement.balanceBefore} → ${movement.balanceAfter}\n'
+              '${movement.reason}${movement.createdBy.isEmpty ? '' : ' · ${movement.createdBy}'}',
+            ),
+            trailing: Text(movement.movementType),
+            isThreeLine: true,
           ),
         ),
       ),

@@ -89,6 +89,25 @@ class AuthRepository {
     }
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirm,
+  }) async {
+    try {
+      await _dio.post<dynamic>(
+        'auth/password/change/',
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+          'new_password_confirm': newPasswordConfirm,
+        },
+      );
+    } catch (error) {
+      throw _errors.map(error);
+    }
+  }
+
   Future<void> logout() async {
     final tokens = await _session.restore();
     // Les identifiants locaux disparaissent avant l'appel distant : une

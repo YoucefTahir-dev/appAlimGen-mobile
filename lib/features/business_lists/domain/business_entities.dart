@@ -390,6 +390,75 @@ class PurchaseSummary {
       );
 }
 
+class PurchaseLineDetails {
+  const PurchaseLineDetails({
+    required this.productId,
+    required this.productName,
+    required this.quantity,
+    required this.purchasePrice,
+    this.packagingId,
+    this.packagingName = '',
+  });
+
+  final int productId, quantity;
+  final int? packagingId;
+  final String productName, purchasePrice, packagingName;
+
+  factory PurchaseLineDetails.fromJson(Map<String, dynamic> json) {
+    final product = Map<String, dynamic>.from(json['product'] as Map? ?? {});
+    final packagingQuantity = (json['packaging_quantity'] as num?)?.toInt();
+    return PurchaseLineDetails(
+      productId: (product['id'] as num).toInt(),
+      productName: product['name']?.toString() ?? '',
+      quantity:
+          packagingQuantity ??
+          (json['entered_quantity'] as num?)?.toInt() ??
+          (json['quantity'] as num?)?.toInt() ??
+          1,
+      purchasePrice: json['purchase_price']?.toString() ?? '0.00',
+      packagingId: (json['packaging_id'] as num?)?.toInt(),
+      packagingName: json['packaging_name']?.toString() ?? '',
+    );
+  }
+}
+
+class PurchaseDetails {
+  const PurchaseDetails({
+    required this.id,
+    required this.reference,
+    required this.supplierId,
+    required this.supplierName,
+    required this.taxRate,
+    required this.total,
+    required this.amountPaid,
+    required this.balanceDue,
+    required this.lines,
+  });
+
+  final int id, supplierId;
+  final String reference, supplierName, taxRate, total, amountPaid, balanceDue;
+  final List<PurchaseLineDetails> lines;
+
+  factory PurchaseDetails.fromJson(Map<String, dynamic> json) =>
+      PurchaseDetails(
+        id: (json['id'] as num).toInt(),
+        reference: json['reference']?.toString() ?? '',
+        supplierId: (json['supplier'] as num).toInt(),
+        supplierName: json['supplier_name']?.toString() ?? '',
+        taxRate: json['tax_rate']?.toString() ?? '0.00',
+        total: json['total']?.toString() ?? '0.00',
+        amountPaid: json['amount_paid']?.toString() ?? '0.00',
+        balanceDue: json['balance_due']?.toString() ?? '0.00',
+        lines: (json['lines'] as List? ?? const [])
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  PurchaseLineDetails.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList(growable: false),
+      );
+}
+
 class ExpenseSummary {
   const ExpenseSummary({
     required this.id,

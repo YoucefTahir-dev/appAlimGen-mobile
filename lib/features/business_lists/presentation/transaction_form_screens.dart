@@ -92,6 +92,21 @@ class _LineDraft {
       }
     }
   }
+  _LineDraft.fromPurchase(PurchaseLineDetails initial) {
+    product = TransactionOption(
+      id: initial.productId,
+      label: initial.productName,
+    );
+    quantity.text = initial.quantity.toString();
+    price.text = initial.purchasePrice;
+    if (initial.packagingId != null) {
+      packaging = TransactionOption(
+        id: initial.packagingId!,
+        label: initial.packagingName,
+      );
+      packagings = [packaging!];
+    }
+  }
   TransactionOption? product;
   TransactionOption? packaging;
   List<TransactionOption> packagings = const [];
@@ -663,20 +678,41 @@ class _PreviewTotalRow extends StatelessWidget {
 }
 
 class PurchaseFormScreen extends ConsumerStatefulWidget {
-  const PurchaseFormScreen({super.key});
+  const PurchaseFormScreen({super.key, this.initial});
+  final PurchaseDetails? initial;
   @override
   ConsumerState<PurchaseFormScreen> createState() => _PurchaseFormScreenState();
 }
 
 class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
   final _form = GlobalKey<FormState>();
-  final _reference = TextEditingController(),
-      _tax = TextEditingController(text: '0');
-  final _lines = <_LineDraft>[_LineDraft()];
+  late final TextEditingController _reference;
+  late final TextEditingController _tax;
+  late final List<_LineDraft> _lines;
   TransactionOption? _supplier;
   bool _saving = false;
   String? _error;
   final _key = const Uuid().v4();
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _reference = TextEditingController(text: initial?.reference ?? '');
+    _tax = TextEditingController(text: initial?.taxRate ?? '0');
+    _lines = initial == null
+        ? <_LineDraft>[_LineDraft()]
+        : initial.lines.map(_LineDraft.fromPurchase).toList();
+    if (_lines.isEmpty) _lines.add(_LineDraft());
+    if (initial != null) {
+      _supplier = TransactionOption(
+        id: initial.supplierId,
+        label: initial.supplierName.isEmpty
+            ? '#${initial.supplierId}'
+            : initial.supplierName,
+      );
+    }
+  }
 
   void _selectPurchaseProduct(_LineDraft line, TransactionOption product) {
     line.product = product;
@@ -728,26 +764,27 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
     }
     setState(() => _saving = true);
     try {
-      await ref
-          .read(purchasesRepositoryProvider)
-          .create(
-            PurchaseWriteRequest(
-              supplierId: _supplier!.id,
-              reference: _reference.text,
-              taxRate: _tax.text,
-              items: _lines
-                  .map(
-                    (l) => TransactionLineRequest(
-                      productId: l.product!.id,
-                      quantity: int.parse(l.quantity.text),
-                      unitPrice: l.price.text,
-                      packagingId: l.packaging?.id,
-                    ),
-                  )
-                  .toList(),
-            ),
-            _key,
-          );
+      final request = PurchaseWriteRequest(
+        supplierId: _supplier!.id,
+        reference: _reference.text,
+        taxRate: _tax.text,
+        items: _lines
+            .map(
+              (l) => TransactionLineRequest(
+                productId: l.product!.id,
+                quantity: int.parse(l.quantity.text),
+                unitPrice: l.price.text,
+                packagingId: l.packaging?.id,
+              ),
+            )
+            .toList(),
+      );
+      final repository = ref.read(purchasesRepositoryProvider);
+      if (widget.initial == null) {
+        await repository.create(request, _key);
+      } else {
+        await repository.update(widget.initial!.id, request, _key);
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       setState(() => _error = e is AppFailure ? e.message : e.toString());
@@ -758,13 +795,18 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Nouvel achat')),
+    appBar: AppBar(
+      title: Text(
+        widget.initial == null ? 'Nouvel achat' : 'Modifier l\'achat',
+      ),
+    ),
     body: Form(
       key: _form,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           RemoteOptionField(
+            initial: _supplier,
             label: 'Fournisseur (recherche)',
             search: (q) =>
                 ref.read(purchasesRepositoryProvider).searchSuppliers(q),

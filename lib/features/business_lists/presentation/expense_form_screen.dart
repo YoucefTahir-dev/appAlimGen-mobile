@@ -1,5 +1,7 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
+import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,6 +100,47 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     }
   }
 
+  Future<void> _createCategory() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_t('newExpenseCategory')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(labelText: _t('name')),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(_t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(_t('save')),
+          ),
+        ],
+      ),
+    );
+    final name = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true || name.isEmpty) return;
+    try {
+      final category = await ref
+          .read(expensesRepositoryProvider)
+          .createCategory(name);
+      if (!mounted) return;
+      setState(() {
+        _categories = [..._categories, category]
+          ..sort((a, b) => a.name.compareTo(b.name));
+        _category = category.id;
+      });
+    } on AppFailure catch (failure) {
+      if (mounted) _show(failure.message);
+    }
+  }
+
   void _show(String value) => ScaffoldMessenger.of(
     context,
   ).showSnackBar(SnackBar(content: Text(value)));
@@ -141,19 +184,38 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  initialValue: _categories.any((e) => e.id == _category)
-                      ? _category
-                      : null,
-                  decoration: _d(_t('category'), 'category'),
-                  items: _categories
-                      .map(
-                        (e) =>
-                            DropdownMenuItem(value: e.id, child: Text(e.name)),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _category = v),
-                  validator: (v) => v == null ? _t('required') : null,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: _categories.any((e) => e.id == _category)
+                            ? _category
+                            : null,
+                        decoration: _d(_t('category'), 'category'),
+                        items: _categories
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(e.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() => _category = v),
+                        validator: (v) => v == null ? _t('required') : null,
+                      ),
+                    ),
+                    if (ref
+                            .watch(authControllerProvider)
+                            .user
+                            ?.can(AppPermissions.addExpenseCategory) ??
+                        false)
+                      IconButton(
+                        tooltip: _t('newExpenseCategory'),
+                        onPressed: _createCategory,
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
