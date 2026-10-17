@@ -174,35 +174,97 @@ void main() {
     expect(text, contains('Carton de 24'));
   });
 
-  test('commercial ticket hides legal identifiers when requested', () {
-    final bytes = EscPosPrinterDriver().invoiceTicket(
-      data: const {
-        'invoice_number': 'FAC-2',
+  test(
+    'minimal 58 and 80 mm tickets contain only products and grand total',
+    () {
+      const data = {
+        'invoice_number': 'FAC-SECRET',
+        'ticket_number': 'TCK-SECRET',
+        'issued_at': '2026-10-17T10:00:00Z',
+        'cashier': 'CAISSIER-SECRET',
+        'show_ticket_information': false,
         'show_legal_information': false,
         'company': {
-          'name_fr': 'EL AMINE',
+          'name_fr': 'ENTREPRISE-SECRET',
+          'address': 'ADRESSE-SOCIETE-SECRET',
+          'phone': 'TELEPHONE-SOCIETE-SECRET',
           'tax_number': 'NIF-SECRET',
+          'nis': 'NIS-SECRET',
           'rc_number': 'RC-SECRET',
+          'article_number': 'AI-SECRET',
         },
-        'customer': {'name': 'Client', 'tax_number': 'NIF-CLIENT-SECRET'},
-        'items': [],
+        'customer': {
+          'name': 'CLIENT-SECRET',
+          'phone': 'TELEPHONE-CLIENT-SECRET',
+          'address': 'ADRESSE-CLIENT-SECRET',
+          'tax_number': 'NIF-CLIENT-SECRET',
+        },
+        'items': [
+          {
+            'name': 'PRODUIT-AUTORISE',
+            'quantity': 2,
+            'packaging': 'CARTON-24',
+            'unit_price': '100.00',
+            'total': '200.00',
+          },
+        ],
         'totals': {
-          'total_ht': '0',
-          'discount': '0',
-          'tax_amount': '0',
-          'tax_rate': '0',
-          'total_ttc': '0',
-          'amount_paid': '0',
-          'balance_due': '0',
+          'total_ht': '180.00',
+          'discount': '5.00',
+          'tax_amount': '25.00',
+          'tax_rate': '19.00',
+          'total_ttc': '200.00',
+          'amount_paid': '200.00',
+          'balance_due': '0.00',
+          'payment_method': 'ESPECES-SECRET',
         },
-      },
-      paperWidth: 58,
-    );
-    final text = String.fromCharCodes(bytes);
-    expect(text, isNot(contains('NIF-SECRET')));
-    expect(text, isNot(contains('RC-SECRET')));
-    expect(text, isNot(contains('NIF-CLIENT-SECRET')));
-  });
+        'qr_code': 'QR-SECRET',
+        'messages': {'thank_you_fr': 'MERCI-SECRET'},
+      };
+
+      for (final width in [58, 80]) {
+        final bytes = EscPosPrinterDriver().invoiceTicket(
+          data: data,
+          paperWidth: width,
+        );
+        final text = String.fromCharCodes(bytes.sublist(2, bytes.length - 3));
+        expect(text, startsWith('PRODUIT-AUTORISE'));
+        expect(text, contains('Qte: 2'));
+        expect(text, contains('Conditionnement: CARTON-24'));
+        expect(text, contains('PU: 100.00'));
+        expect(text, contains('Total: 200.00'));
+        expect(text, endsWith('200.00'));
+        expect(text, contains('TOTAL GENERAL'));
+        for (final forbidden in [
+          'FAC-SECRET',
+          'TCK-SECRET',
+          '2026-10-17',
+          'CAISSIER-SECRET',
+          'ENTREPRISE-SECRET',
+          'ADRESSE-SOCIETE-SECRET',
+          'TELEPHONE-SOCIETE-SECRET',
+          'NIF-SECRET',
+          'NIS-SECRET',
+          'RC-SECRET',
+          'AI-SECRET',
+          'CLIENT-SECRET',
+          'TELEPHONE-CLIENT-SECRET',
+          'ADRESSE-CLIENT-SECRET',
+          'NIF-CLIENT-SECRET',
+          'ESPECES-SECRET',
+          'QR-SECRET',
+          'MERCI-SECRET',
+          'Total HT',
+          'TVA',
+          'Remise',
+          'Paye',
+          'Reste',
+        ]) {
+          expect(text, isNot(contains(forbidden)));
+        }
+      }
+    },
+  );
 
   test('raster ticket converts RGBA pixels to ESC/POS image bytes', () {
     final bytes = EscPosPrinterDriver().rasterTicket(

@@ -82,7 +82,27 @@ class EscPosPrinterDriver implements PrinterDriver {
       return '$safeLeft${' ' * (columns - safeLeft.length - right.length)}$right';
     }
 
-    final showLegal = data['show_legal_information'] != false;
+    final showTicketInformation =
+        data['show_ticket_information'] != false &&
+        data['show_legal_information'] != false;
+    if (!showTicketInformation) {
+      final minimalLines = <String>[
+        for (final item in items) ...[
+          fit(item['name']?.toString() ?? ''),
+          fit('Qte: ${item['quantity'] ?? ''}'),
+          fit('Conditionnement: ${item['packaging'] ?? ''}'),
+          pair(
+            'PU: ${item['unit_price'] ?? ''}',
+            'Total: ${item['total'] ?? ''}',
+          ),
+          '-' * columns,
+        ],
+        pair('TOTAL GENERAL', totals['total_ttc']?.toString() ?? ''),
+      ];
+      return _encode(minimalLines.join('\n'));
+    }
+
+    const showLegal = true;
     final lines = <String>[
       '=' * columns,
       fit(company['name_fr']?.toString() ?? 'EL AMINE'),
