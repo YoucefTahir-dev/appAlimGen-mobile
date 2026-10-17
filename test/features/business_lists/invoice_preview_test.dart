@@ -24,6 +24,7 @@ const _capabilities = SaleCapabilities(
 SaleDetails _sale({
   String status = 'partial',
   int lineCount = 2,
+  bool showLegalInformation = true,
 }) => SaleDetails(
   id: 7,
   number: 'FAC-2026-000007',
@@ -74,6 +75,7 @@ SaleDetails _sale({
   paymentType: 'Espèces',
   paymentTypeCode: 'cash',
   paymentStatus: status,
+  showLegalInformation: showLegalInformation,
   payments: const [],
   capabilities: _capabilities,
 );
@@ -116,6 +118,26 @@ Widget _app(Widget home, {Locale locale = const Locale('fr')}) => ProviderScope(
 );
 
 void main() {
+  testWidgets('ticket OFF minimal et A4 officiel', (tester) async {
+    final data = InvoiceDocumentData(sale: _sale(showLegalInformation: false));
+    await tester.pumpWidget(
+      _app(
+        SingleChildScrollView(
+          child: Column(
+            children: [
+              InvoiceDocumentView(data: data, paper: InvoicePaper.mm58),
+              InvoiceDocumentView(data: data, paper: InvoicePaper.mm80),
+              InvoiceDocumentView(data: data, paper: InvoicePaper.a4),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.text('TOTAL TTC'), findsNWidgets(2));
+    expect(find.text('Entreprise test'), findsOneWidget);
+    expect(find.text('FAC-2026-000007'), findsOneWidget);
+  });
+
   test(
     'centralise les largeurs thermiques en millimètres, points et colonnes',
     () {

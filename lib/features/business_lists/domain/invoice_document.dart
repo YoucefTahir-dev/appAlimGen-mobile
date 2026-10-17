@@ -77,4 +77,5 @@ class InvoiceDocumentData {
   String get balanceDue => sale.balanceDue;
   String get paymentType => sale.paymentType;
   String get paymentStatus => sale.paymentStatus;
+  bool get showTicketInformation => sale.showLegalInformation;
 }

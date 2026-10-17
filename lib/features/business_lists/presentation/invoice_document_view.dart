@@ -66,6 +66,9 @@ class _ThermalInvoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = SalesStrings.of(context);
     final compact = paper == InvoicePaper.mm58;
+    if (!data.showTicketInformation) {
+      return _MinimalThermalInvoice(data: data, compact: compact);
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,6 +195,44 @@ class _ThermalInvoice extends StatelessWidget {
           t('thankYou'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+class _MinimalThermalInvoice extends StatelessWidget {
+  const _MinimalThermalInvoice({required this.data, required this.compact});
+
+  final InvoiceDocumentData data;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final line in data.lines) ...[
+          Text(
+            line.productName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          _LabelValue(
+            label: '${line.quantity} × ${line.unitPrice}',
+            value: line.total,
+            compact: compact,
+          ),
+          if (line.packagingName.isNotEmpty)
+            Text(line.packagingName, style: const TextStyle(fontSize: 9)),
+          const SizedBox(height: 3),
+        ],
+        const _ReceiptRule(),
+        _LabelValue(
+          label: 'TOTAL TTC',
+          value: '${data.total} DZD',
+          compact: compact,
+          strong: true,
         ),
       ],
     );
