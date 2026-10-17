@@ -286,6 +286,17 @@ class PaymentsRepository extends _BusinessRepository<PaymentSummary> {
       throw errors.map(e);
     }
   }
+
+  Future<void> cancel(int paymentId, String reason) async {
+    try {
+      await dio.post<dynamic>(
+        'payments/$paymentId/cancel/',
+        data: {'reason': reason},
+      );
+    } catch (e) {
+      throw errors.map(e);
+    }
+  }
 }
 
 Future<List<TransactionOption>> _searchProducts(

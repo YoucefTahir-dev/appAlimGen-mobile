@@ -18,6 +18,7 @@ import 'package:app_alim_gen_mobile/features/printers/services/bluetooth_printer
 import 'package:app_alim_gen_mobile/features/printers/services/esc_pos_printer_driver.dart';
 import 'package:app_alim_gen_mobile/features/printers/services/printer_test_service.dart';
 import 'package:app_alim_gen_mobile/features/products/data/products_repository.dart';
+import 'package:app_alim_gen_mobile/features/receivables/data/receivables_repository.dart';
 import 'package:app_alim_gen_mobile/features/stock/data/stock_repository.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,6 +124,12 @@ final expensesRepositoryProvider = Provider<ExpensesRepository>(
 );
 final paymentsRepositoryProvider = Provider<PaymentsRepository>(
   (ref) => PaymentsRepository(
+    ref.watch(apiClientProvider).dio,
+    ref.watch(errorMapperProvider),
+  ),
+);
+final receivablesRepositoryProvider = Provider<ReceivablesRepository>(
+  (ref) => ReceivablesRepository(
     ref.watch(apiClientProvider).dio,
     ref.watch(errorMapperProvider),
   ),

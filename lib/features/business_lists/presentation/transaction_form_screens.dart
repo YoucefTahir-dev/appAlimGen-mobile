@@ -82,6 +82,7 @@ class _LineDraft {
       );
       quantity.text = initial.quantity.toString();
       price.text = initial.unitPrice;
+      priceManuallyEdited = true;
       if (initial.packagingId != null) {
         packaging = TransactionOption(
           id: initial.packagingId!,
@@ -96,6 +97,7 @@ class _LineDraft {
   List<TransactionOption> packagings = const [];
   final quantity = TextEditingController(text: '1');
   final price = TextEditingController();
+  bool priceManuallyEdited = false;
   double get total =>
       (int.tryParse(quantity.text) ?? 0) *
       (double.tryParse(price.text.replaceAll(',', '.')) ?? 0);
@@ -165,6 +167,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
     TransactionOption product,
   ) async {
     line.product = product;
+    line.priceManuallyEdited = false;
     if (_client != null) {
       try {
         final p = await ref
@@ -182,6 +185,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
 
   void _applyPrice(_LineDraft line, Map<String, dynamic> data) {
     line.price.text = (data['unit_price'] ?? data['price'] ?? '').toString();
+    line.priceManuallyEdited = false;
     line.packagings = (data['packagings'] as List? ?? const [])
         .whereType<Map>()
         .map((raw) {
@@ -206,7 +210,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
       final data = await ref
           .read(salesRepositoryProvider)
           .price(line.product!.id, _client!.id, packagingId: packaging?.id);
-      line.price.text = (data['unit_price'] ?? data['price'] ?? '').toString();
+      _applySuggestedPrice(line, data);
     } catch (error) {
       if (mounted) {
         setState(
@@ -228,8 +232,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
               client.id,
               packagingId: line.packaging?.id,
             );
-        line.price.text = (price['unit_price'] ?? price['price'] ?? '')
-            .toString();
+        _applySuggestedPrice(line, price);
       } catch (error) {
         if (mounted) {
           setState(
@@ -240,6 +243,19 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
       }
     }
     if (mounted) setState(() {});
+  }
+
+  void _applySuggestedPrice(_LineDraft line, Map<String, dynamic> data) {
+    if (line.priceManuallyEdited && line.price.text.trim().isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(SalesStrings.of(context)('manualPriceKept'))),
+        );
+      }
+      return;
+    }
+    line.price.text = (data['unit_price'] ?? data['price'] ?? '').toString();
+    line.priceManuallyEdited = false;
   }
 
   Future<void> _submit() async {
@@ -446,7 +462,9 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: l.price,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: (_) => setState(() {
+                                l.priceManuallyEdited = true;
+                              }),
                               keyboardType:
                                   const TextInputType.numberWithOptions(
                                     decimal: true,

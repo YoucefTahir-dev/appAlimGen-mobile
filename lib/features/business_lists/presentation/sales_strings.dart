@@ -56,6 +56,8 @@ class SalesStrings {
       'unit': 'Unité',
       'quantity': 'Quantité',
       'serverPrice': 'Prix serveur',
+      'manualPriceKept':
+          'Prix manuel conservé : vérifiez-le après le changement de client ou de conditionnement.',
       'addProduct': 'Ajouter produit',
       'payFull': 'Régler intégralement',
       'payPartial': 'Régler partiellement',
@@ -154,6 +156,8 @@ class SalesStrings {
       'unit': 'وحدة',
       'quantity': 'الكمية',
       'serverPrice': 'سعر الخادم',
+      'manualPriceKept':
+          'تم الاحتفاظ بالسعر اليدوي. يرجى مراجعته بعد تغيير العميل أو التعبئة.',
       'addProduct': 'إضافة منتج',
       'payFull': 'دفع المبلغ كاملاً',
       'payPartial': 'دفع جزئي',
@@ -250,6 +254,8 @@ class SalesStrings {
       'unit': 'Unit',
       'quantity': 'Quantity',
       'serverPrice': 'Server price',
+      'manualPriceKept':
+          'Manual price kept. Check it after changing the client or packaging.',
       'addProduct': 'Add product',
       'payFull': 'Pay in full',
       'payPartial': 'Pay partially',

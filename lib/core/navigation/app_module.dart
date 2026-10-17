@@ -76,6 +76,13 @@ final appModules = <AppModule>[
     allowed: (p) => p.canViewPayments,
   ),
   AppModule(
+    labelKey: 'receivables',
+    path: '/receivables',
+    icon: Icons.account_balance_wallet_outlined,
+    section: NavigationSection.operations,
+    allowed: (p) => p.has(AppPermissions.receivables),
+  ),
+  AppModule(
     labelKey: 'stock',
     path: '/stock',
     icon: Icons.warehouse_outlined,

@@ -11,6 +11,7 @@ import 'package:app_alim_gen_mobile/features/dashboard/presentation/dashboard_sc
 import 'package:app_alim_gen_mobile/features/loading_orders/presentation/loading_orders_screen.dart';
 import 'package:app_alim_gen_mobile/features/printers/presentation/printers_screen.dart';
 import 'package:app_alim_gen_mobile/features/products/presentation/products_screen.dart';
+import 'package:app_alim_gen_mobile/features/receivables/presentation/receivables_screen.dart';
 import 'package:app_alim_gen_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:app_alim_gen_mobile/features/stock/presentation/stock_screens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/purchases', builder: (_, _) => const PurchasesScreen()),
       GoRoute(path: '/invoices', builder: (_, _) => const InvoicesScreen()),
       GoRoute(path: '/payments', builder: (_, _) => const PaymentsScreen()),
+      GoRoute(
+        path: '/receivables',
+        builder: (_, _) => const ReceivablesScreen(),
+      ),
       GoRoute(path: '/stock', builder: (_, _) => const StockScreen()),
       GoRoute(
         path: '/operator-stock',

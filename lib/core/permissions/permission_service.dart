@@ -18,6 +18,9 @@ class AppPermissions {
   static const addSale = 'commerce.add_sale';
   static const changeSale = 'commerce.change_sale';
   static const deleteSale = 'commerce.delete_sale';
+  static const receivables = 'commerce.view_receivables';
+  static const addCustomerPayment = 'commerce.add_customerpayment';
+  static const cancelCustomerPayment = 'commerce.cancel_customerpayment';
   static const purchases = 'commerce.view_purchase';
   static const addPurchase = 'commerce.add_purchase';
   static const changePurchase = 'commerce.change_purchase';
@@ -72,6 +75,7 @@ class PermissionService {
     '/operator-stock' => canViewOperatorStock,
     '/loading-orders' => canViewLoadingOrders,
     '/payments' => canViewPayments,
+    '/receivables' => has(AppPermissions.receivables),
     '/expenses' => has(AppPermissions.expenses),
     '/printers' => has(AppPermissions.printers),
     '/company-settings' => has(AppPermissions.settings),

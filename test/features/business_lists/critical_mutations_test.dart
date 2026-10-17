@@ -51,6 +51,9 @@ void main() {
         saleId: 1,
         amount: '12.00',
         paymentType: 'cash',
+        createdAt: '2026-10-16T10:00:00Z',
+        externalReference: 'MOB-12',
+        notes: 'Acompte',
       ),
       key,
     );
@@ -66,6 +69,11 @@ void main() {
     final saleBody = Map<String, dynamic>.from(adapter.requests[0].data as Map);
     expect(saleBody['amount_received'], '5.00');
     expect(saleBody['show_legal_information'], isFalse);
+    final paymentBody = Map<String, dynamic>.from(
+      adapter.requests[2].data as Map,
+    );
+    expect(paymentBody['external_reference'], 'MOB-12');
+    expect(paymentBody['notes'], 'Acompte');
   });
 
   test('modification vente conserve sa clé et toutes les lignes', () async {

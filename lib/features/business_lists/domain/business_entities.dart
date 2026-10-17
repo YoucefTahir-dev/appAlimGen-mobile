@@ -585,13 +585,20 @@ class PaymentWriteRequest {
     this.purchaseId,
     required this.amount,
     required this.paymentType,
+    this.createdAt,
+    this.externalReference,
+    this.notes,
   });
   final int? saleId, purchaseId;
   final String amount, paymentType;
+  final String? createdAt, externalReference, notes;
   Map<String, dynamic> toJson() => {
     if (saleId != null) 'sale': saleId,
     if (purchaseId != null) 'purchase': purchaseId,
     'amount': amount,
     'payment_type': paymentType,
+    if (createdAt != null) 'created_at': createdAt,
+    if (externalReference != null) 'external_reference': externalReference,
+    if (notes != null) 'notes': notes,
   };
 }
