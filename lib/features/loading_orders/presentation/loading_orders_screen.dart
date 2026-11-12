@@ -13,6 +13,7 @@ import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.d
 import 'package:app_alim_gen_mobile/features/stock/presentation/stock_screens.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:app_alim_gen_mobile/l10n/crud_strings.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,44 +29,58 @@ class LoadingOrderActionState {
 }
 
 class LoadingOrderActionController extends Notifier<LoadingOrderActionState> {
+  final Map<(int, LoadingOrderAction), String> _intentKeys = {};
+
   @override
   LoadingOrderActionState build() {
     ref.watch(sessionEpochProvider);
+    // An uncertain response must keep the same intent key on the next tap.
+    // A different authenticated session must never inherit another user's key.
+    _intentKeys.clear();
     return const LoadingOrderActionState();
   }
+
+  String _keyFor(int id, LoadingOrderAction action) => _intentKeys.putIfAbsent((
+    id,
+    action,
+  ), () => ref.read(loadingOrdersRepositoryProvider).newKey());
 
   Future<LoadingOrderSummary> validateOrder(int id) => _run(
     id,
     LoadingOrderAction.validate,
-    () => ref
+    (cancelToken) => ref
         .read(loadingOrdersRepositoryProvider)
         .validateLoadingOrder(
           id,
-          ref.read(loadingOrdersRepositoryProvider).newKey(),
+          _keyFor(id, LoadingOrderAction.validate),
+          cancelToken: cancelToken,
         ),
   );
 
   Future<LoadingOrderSummary> cancelOrder(int id) => _run(
     id,
     LoadingOrderAction.cancel,
-    () => ref.read(loadingOrdersRepositoryProvider).cancelLoadingOrder(id),
+    (cancelToken) => ref
+        .read(loadingOrdersRepositoryProvider)
+        .cancelLoadingOrder(id, cancelToken: cancelToken),
   );
 
   Future<LoadingOrderSummary> closeOrder(int id) => _run(
     id,
     LoadingOrderAction.close,
-    () => ref
+    (cancelToken) => ref
         .read(loadingOrdersRepositoryProvider)
         .closeLoadingOrder(
           id,
-          ref.read(loadingOrdersRepositoryProvider).newKey(),
+          _keyFor(id, LoadingOrderAction.close),
+          cancelToken: cancelToken,
         ),
   );
 
   Future<LoadingOrderSummary> _run(
     int id,
     LoadingOrderAction action,
-    Future<LoadingOrderSummary> Function() request,
+    Future<LoadingOrderSummary> Function(CancelToken) request,
   ) async {
     if (state.isLoading) {
       throw const AppFailure(
@@ -74,11 +89,24 @@ class LoadingOrderActionController extends Notifier<LoadingOrderActionState> {
         message: 'Une action est déjà en cours.',
       );
     }
+    final epoch = ref.read(sessionEpochProvider);
+    final cancelToken = ref.read(sessionBoundaryProvider).cancelToken;
     state = LoadingOrderActionState(orderId: id, action: action);
     try {
-      return await request();
+      final result = await request(cancelToken);
+      if (!ref.mounted || ref.read(sessionEpochProvider) != epoch) {
+        throw const AppFailure(
+          kind: FailureKind.conflict,
+          code: 'SESSION_CHANGED',
+          message: 'La session a changé. Rouvrez le chargement.',
+        );
+      }
+      return result;
     } finally {
-      state = const LoadingOrderActionState();
+      // An old request must not clear the busy state of the next session.
+      if (ref.mounted && ref.read(sessionEpochProvider) == epoch) {
+        state = const LoadingOrderActionState();
+      }
     }
   }
 }
@@ -273,6 +301,8 @@ class LoadingOrdersScreen extends ConsumerWidget {
     LoadingOrderAction action,
   ) async {
     final s = AppLocalizations.of(context);
+    final sessionGeneration = ref.read(sessionEpochProvider);
+    final intentToken = ref.read(sessionBoundaryProvider).cancelToken;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -296,8 +326,16 @@ class LoadingOrdersScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (ok != true) return;
-    final sessionGeneration = ref.read(sessionEpochProvider);
+    if (!context.mounted ||
+        ok != true ||
+        ref.read(sessionEpochProvider) != sessionGeneration ||
+        intentToken.isCancelled ||
+        !identical(
+          ref.read(sessionBoundaryProvider).cancelToken,
+          intentToken,
+        )) {
+      return;
+    }
     try {
       final controller = ref.read(loadingOrderActionProvider.notifier);
       final updated = await switch (action) {
@@ -323,7 +361,8 @@ class LoadingOrdersScreen extends ConsumerWidget {
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (context.mounted &&
+          ref.read(sessionEpochProvider) == sessionGeneration) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e is AppFailure ? e.message : e.toString())),
         );

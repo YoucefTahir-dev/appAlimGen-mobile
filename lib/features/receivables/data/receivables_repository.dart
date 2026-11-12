@@ -49,6 +49,7 @@ class ReceivablesRepository {
     String? createdAt,
     String? externalReference,
     String? notes,
+    CancelToken? cancelToken,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -62,8 +63,14 @@ class ReceivablesRepository {
       if (notes != null) payload['notes'] = notes;
       await _dio.post<dynamic>(
         'receivables/$clientId/allocate-payment/',
+        cancelToken: cancelToken,
         data: payload,
-        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': idempotencyKey,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
     } catch (error) {
       throw _errors.map(error);

@@ -2,7 +2,9 @@ import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
 import 'package:app_alim_gen_mobile/features/receivables/domain/receivable.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -386,12 +388,26 @@ class _PaymentDialog extends ConsumerStatefulWidget {
 
 class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   final _form = GlobalKey<FormState>();
+  final _intentKey = const Uuid().v4();
+  late final int _intentEpoch;
+  String? _intentCreatedAt;
   final _amount = TextEditingController();
   final _reference = TextEditingController();
   final _notes = TextEditingController();
   String _type = 'cash';
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _intentEpoch = ref.read(sessionEpochProvider);
+  }
+
+  bool get _sameIntentSession => ref.read(sessionEpochProvider) == _intentEpoch;
+
+  String get _changedSessionMessage =>
+      'La session a changé. Fermez ce formulaire et rouvrez le compte client.';
 
   @override
   void dispose() {
@@ -402,7 +418,14 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    if (!_sameIntentSession) {
+      setState(() => _error = _changedSessionMessage);
+      return;
+    }
     if (!(_form.currentState?.validate() ?? false)) return;
+    final cancelToken = ref.read(sessionBoundaryProvider).cancelToken;
+    _intentCreatedAt ??= DateTime.now().toIso8601String();
     setState(() => _saving = true);
     try {
       await ref
@@ -411,16 +434,27 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
             clientId: widget.clientId,
             amount: _amount.text.replaceAll(',', '.'),
             paymentType: _type,
-            createdAt: DateTime.now().toIso8601String(),
+            createdAt: _intentCreatedAt!,
             externalReference: _reference.text.trim(),
             notes: _notes.text.trim(),
-            idempotencyKey: const Uuid().v4(),
+            idempotencyKey: _intentKey,
+            cancelToken: cancelToken,
           );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        if (!_sameIntentSession) {
+          setState(() => _error = _changedSessionMessage);
+          return;
+        }
+        Navigator.pop(context, true);
+      }
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = error is AppFailure ? error.message : error.toString(),
+          () => _error = !_sameIntentSession
+              ? _changedSessionMessage
+              : error is AppFailure
+              ? error.message
+              : error.toString(),
         );
       }
     } finally {
@@ -431,6 +465,7 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final sales = SalesStrings.of(context);
     return AlertDialog(
       title: Text(t.text('newPayment')),
       content: Form(
@@ -448,14 +483,14 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: InputDecoration(labelText: t.text('amount')),
+                decoration: InputDecoration(labelText: sales('amount')),
                 validator: (value) {
                   final amount = double.tryParse(
                     (value ?? '').replaceAll(',', '.'),
                   );
                   final due = double.tryParse(widget.balanceDue) ?? 0;
                   if (amount == null || amount <= 0) {
-                    return t.text('invalidAmount');
+                    return sales('invalidAmount');
                   }
                   if (amount > due) return t.text('amountAboveClientDebt');
                   return null;
@@ -463,12 +498,12 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
               ),
               DropdownButtonFormField<String>(
                 initialValue: _type,
-                decoration: InputDecoration(labelText: t.text('paymentMethod')),
+                decoration: InputDecoration(labelText: sales('paymentMethod')),
                 items: ['cash', 'cheque', 'transfer']
                     .map(
                       (value) => DropdownMenuItem(
                         value: value,
-                        child: Text(t.text(value)),
+                        child: Text(sales(value)),
                       ),
                     )
                     .toList(growable: false),

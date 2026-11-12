@@ -1,5 +1,6 @@
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/sale_preview_totals.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
@@ -144,9 +145,11 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
   String _paymentType = 'cash';
   String? _error;
   final _key = const Uuid().v4();
+  late final int _intentEpoch;
   @override
   void initState() {
     super.initState();
+    _intentEpoch = ref.read(sessionEpochProvider);
     final initial = widget.initial;
     _discount = TextEditingController(text: initial?.discount ?? '0');
     _tax = TextEditingController(text: initial?.taxRate ?? '0');
@@ -274,6 +277,11 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
+    if (ref.read(sessionEpochProvider) != _intentEpoch) {
+      setState(() => _error = 'La session a changé. Rouvrez ce formulaire.');
+      return;
+    }
     if (_saving ||
         !(_form.currentState?.validate() ?? false) ||
         _client == null ||
@@ -281,6 +289,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
       setState(() => _error = SalesStrings.of(context)('selectClientProducts'));
       return;
     }
+    final cancelToken = ref.read(sessionBoundaryProvider).cancelToken;
     setState(() => _saving = true);
     try {
       final request = SaleWriteRequest(
@@ -306,9 +315,18 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
       );
       final repository = ref.read(salesRepositoryProvider);
       final result = widget.initial == null
-          ? await repository.create(request, _key)
-          : await repository.update(widget.initial!.id, request, _key);
+          ? await repository.create(request, _key, cancelToken: cancelToken)
+          : await repository.update(
+              widget.initial!.id,
+              request,
+              _key,
+              cancelToken: cancelToken,
+            );
       if (!mounted) return;
+      if (ref.read(sessionEpochProvider) != _intentEpoch) {
+        setState(() => _error = 'La session a changé. Rouvrez ce formulaire.');
+        return;
+      }
       if (widget.initial != null) {
         _refreshSaleConsumers();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -319,7 +337,15 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
         await _showSuccess(result);
       }
     } catch (e) {
-      setState(() => _error = e is AppFailure ? e.message : e.toString());
+      if (mounted) {
+        setState(
+          () => _error = ref.read(sessionEpochProvider) != _intentEpoch
+              ? 'La session a changé. Rouvrez ce formulaire.'
+              : e is AppFailure
+              ? e.message
+              : e.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -366,7 +392,7 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
         ],
       ),
     );
-    if (!mounted) return;
+    if (!mounted || ref.read(sessionEpochProvider) != _intentEpoch) return;
     if (action == 'invoice' || action == 'print') {
       await Navigator.push<void>(
         context,
@@ -390,7 +416,9 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
         ),
       );
     }
-    if (mounted) Navigator.pop(context, true);
+    if (mounted && ref.read(sessionEpochProvider) == _intentEpoch) {
+      Navigator.pop(context, true);
+    }
   }
 
   @override
@@ -693,10 +721,12 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
   bool _saving = false;
   String? _error;
   final _key = const Uuid().v4();
+  late final int _intentEpoch;
 
   @override
   void initState() {
     super.initState();
+    _intentEpoch = ref.read(sessionEpochProvider);
     final initial = widget.initial;
     _reference = TextEditingController(text: initial?.reference ?? '');
     _tax = TextEditingController(text: initial?.taxRate ?? '0');
@@ -753,6 +783,11 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
+    if (ref.read(sessionEpochProvider) != _intentEpoch) {
+      setState(() => _error = 'La session a changé. Rouvrez ce formulaire.');
+      return;
+    }
     if (_saving ||
         !(_form.currentState?.validate() ?? false) ||
         _supplier == null ||
@@ -762,6 +797,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
       );
       return;
     }
+    final cancelToken = ref.read(sessionBoundaryProvider).cancelToken;
     setState(() => _saving = true);
     try {
       final request = PurchaseWriteRequest(
@@ -781,13 +817,34 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
       );
       final repository = ref.read(purchasesRepositoryProvider);
       if (widget.initial == null) {
-        await repository.create(request, _key);
+        await repository.create(request, _key, cancelToken: cancelToken);
       } else {
-        await repository.update(widget.initial!.id, request, _key);
+        await repository.update(
+          widget.initial!.id,
+          request,
+          _key,
+          cancelToken: cancelToken,
+        );
       }
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        if (ref.read(sessionEpochProvider) != _intentEpoch) {
+          setState(
+            () => _error = 'La session a changé. Rouvrez ce formulaire.',
+          );
+          return;
+        }
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      setState(() => _error = e is AppFailure ? e.message : e.toString());
+      if (mounted) {
+        setState(
+          () => _error = ref.read(sessionEpochProvider) != _intentEpoch
+              ? 'La session a changé. Rouvrez ce formulaire.'
+              : e is AppFailure
+              ? e.message
+              : e.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -1000,9 +1057,11 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   String _paymentType = 'cash';
   String? _error;
   final _key = const Uuid().v4();
+  late final int _intentEpoch;
   @override
   void initState() {
     super.initState();
+    _intentEpoch = ref.read(sessionEpochProvider);
     if (widget.initialSaleId != null) {
       _document.text = widget.initialSaleId.toString();
       _amount.text = widget.balanceDue ?? '';
@@ -1017,7 +1076,13 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
+    if (ref.read(sessionEpochProvider) != _intentEpoch) {
+      setState(() => _error = 'La session a changé. Rouvrez ce formulaire.');
+      return;
+    }
     if (_saving || !(_form.currentState?.validate() ?? false)) return;
+    final cancelToken = ref.read(sessionBoundaryProvider).cancelToken;
     setState(() => _saving = true);
     try {
       await ref
@@ -1030,10 +1095,27 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
               paymentType: _paymentType,
             ),
             _key,
+            cancelToken: cancelToken,
           );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        if (ref.read(sessionEpochProvider) != _intentEpoch) {
+          setState(
+            () => _error = 'La session a changé. Rouvrez ce formulaire.',
+          );
+          return;
+        }
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      setState(() => _error = e is AppFailure ? e.message : e.toString());
+      if (mounted) {
+        setState(
+          () => _error = ref.read(sessionEpochProvider) != _intentEpoch
+              ? 'La session a changé. Rouvrez ce formulaire.'
+              : e is AppFailure
+              ? e.message
+              : e.toString(),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

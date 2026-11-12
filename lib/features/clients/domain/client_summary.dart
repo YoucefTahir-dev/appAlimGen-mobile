@@ -109,7 +109,7 @@ class ClientWriteRequest {
   final String nis, articleNumber, tradeRegisterNumber;
   final double? latitude, longitude, locationAccuracy;
   final String? formattedAddress, placeId;
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson({bool includeBalance = true}) => {
     'name': name,
     'phone': phone,
     'address': address,
@@ -120,7 +120,7 @@ class ClientWriteRequest {
     'nis': nis,
     'article_number': articleNumber,
     'trade_register_number': tradeRegisterNumber,
-    'balance': balance,
+    if (includeBalance) 'balance': balance,
     'notes': notes,
     'latitude': latitude,
     'longitude': longitude,

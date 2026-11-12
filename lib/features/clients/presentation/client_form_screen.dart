@@ -270,6 +270,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                 _text(
                   'balance',
                   _t('balance'),
+                  readOnly: _editing,
                   keyboard: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -302,6 +303,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     TextInputType? keyboard,
     int maxLines = 1,
     Widget? suffix,
+    bool readOnly = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: TextFormField(
@@ -310,6 +312,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       validator: validator,
       keyboardType: keyboard,
       maxLines: maxLines,
+      readOnly: readOnly,
     ),
   );
 
