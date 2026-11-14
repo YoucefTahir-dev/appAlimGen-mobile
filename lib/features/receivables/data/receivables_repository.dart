@@ -32,10 +32,27 @@ class ReceivablesRepository {
     }
   }
 
-  Future<ReceivableAccount> getAccount(int clientId) async {
+  Future<ReceivableAccount> getAccount(
+    int clientId, {
+    int page = 1,
+    int paymentsPage = 1,
+    int openingPage = 1,
+  }) async {
     try {
-      final response = await _dio.get<dynamic>('receivables/$clientId/');
-      return ReceivableAccount.fromJson(ApiEnvelope.object(response.data));
+      if (page < 1 || paymentsPage < 1 || openingPage < 1) {
+        throw const FormatException('Page invalide.');
+      }
+      // No legacy fallback: it would silently reload the complete history.
+      final response = await _dio.get<dynamic>(
+        'receivables/$clientId/account-page/',
+        queryParameters: {
+          'page': page,
+          'payments_page': paymentsPage,
+          'opening_page': openingPage,
+          'page_size': 25,
+        },
+      );
+      return ReceivableAccount.fromPagedJson(ApiEnvelope.object(response.data));
     } catch (error) {
       throw _errors.map(error);
     }

@@ -60,7 +60,12 @@ class _Receipts extends ReceivablesRepository {
   bool failNext = false;
   Completer<void>? next;
   @override
-  Future<ReceivableAccount> getAccount(int clientId) async => _account;
+  Future<ReceivableAccount> getAccount(
+    int clientId, {
+    int page = 1,
+    int paymentsPage = 1,
+    int openingPage = 1,
+  }) async => _account;
   @override
   Future<void> allocatePayment({
     required int clientId,

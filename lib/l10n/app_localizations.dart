@@ -44,6 +44,10 @@ class AppLocalizations {
           'Le montant dépasse le total des créances du client.',
       'stockMovements': 'Mouvements de stock',
       'openingBalance': 'Créance antérieure restante',
+      'openingBalancePayments': 'Règlements de la dette antérieure',
+      'previousPage': 'Page précédente',
+      'nextPage': 'Page suivante',
+      'historyPage': 'Page',
       'biometricSettingDescription':
           'La biométrie reste locale à cet appareil et ne remplace pas la session sécurisée du serveur.',
       'biometricEnabled': 'Connexion biométrique activée.',
@@ -238,6 +242,10 @@ class AppLocalizations {
       'amountAboveClientDebt': 'المبلغ أكبر من إجمالي ديون العميل.',
       'stockMovements': 'حركات المخزون',
       'openingBalance': 'الدين السابق المتبقي',
+      'openingBalancePayments': 'تسديدات الدين السابق',
+      'previousPage': 'الصفحة السابقة',
+      'nextPage': 'الصفحة التالية',
+      'historyPage': 'صفحة',
       'biometricSettingDescription':
           'تبقى البيانات البيومترية محلية على الجهاز ولا تستبدل جلسة الخادم الآمنة.',
       'biometricEnabled': 'تم تفعيل تسجيل الدخول بالبصمة.',
@@ -427,6 +435,10 @@ class AppLocalizations {
           'The amount exceeds the client’s total outstanding debt.',
       'stockMovements': 'Stock movements',
       'openingBalance': 'Remaining prior debt',
+      'openingBalancePayments': 'Prior debt payments',
+      'previousPage': 'Previous page',
+      'nextPage': 'Next page',
+      'historyPage': 'Page',
       'biometricSettingDescription':
           'Biometric data stays on this device and does not replace the secure server session.',
       'biometricEnabled': 'Biometric sign-in enabled.',
