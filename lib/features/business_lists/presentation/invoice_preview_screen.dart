@@ -8,6 +8,8 @@ import 'package:app_alim_gen_mobile/features/business_lists/domain/invoice_docum
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_document_view.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
+import 'package:app_alim_gen_mobile/features/printers/domain/printer_print_profile.dart';
+import 'package:app_alim_gen_mobile/features/printers/presentation/printer_print_settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +42,7 @@ class InvoicePreviewScreen extends ConsumerStatefulWidget {
 
 class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
   final _documentKey = GlobalKey();
+  final _documentViewKey = GlobalKey<InvoiceDocumentViewState>();
   InvoicePaper _paper = InvoicePaper.mm80;
   PrinterDetails? _printer;
   bool _busy = false;
@@ -96,18 +99,8 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
   String _message(Object error) =>
       error is AppFailure ? error.message : error.toString();
 
-  bool get _containsArabic {
-    final values = <String>[
-      widget.sale.client.name,
-      widget.sale.client.address,
-      ...widget.sale.lines.map((line) => line.productName),
-      ...widget.sale.lines.map((line) => line.packagingName),
-    ];
-    return RegExp(r'[\u0600-\u06ff]').hasMatch(values.join(' '));
-  }
-
-  Future<Uint8List> _rasterBytes() async {
-    await WidgetsBinding.instance.endOfFrame;
+  Future<Uint8List> _rasterBytes(PrinterPrintProfile profile) async {
+    await _documentViewKey.currentState?.prepareForPrint();
     final boundary =
         _documentKey.currentContext?.findRenderObject()
             as RenderRepaintBoundary?;
@@ -126,6 +119,7 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
             rgba: data.buffer.asUint8List(),
             width: image.width,
             height: image.height,
+            profile: profile,
           );
     } finally {
       image.dispose();
@@ -186,6 +180,7 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
   Future<void> _print() async {
     if (_busy) return;
     if (_paper == InvoicePaper.a4) return _openPdf();
+    if (!widget.canPrint) return;
     final languageCode = ref.read(localeProvider).languageCode;
     setState(() => _busy = true);
     try {
@@ -197,24 +192,20 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
         );
       }
       final width = InvoicePaperSpec.of(_paper).widthMm!;
-      final bytes = _containsArabic || languageCode == 'ar'
-          ? await _rasterBytes()
-          : ref
-                .read(printerTestServiceProvider)
-                .driver
-                .invoiceTicket(
-                  data: await ref
-                      .read(invoicesRepositoryProvider)
-                      .printData(
-                        widget.sale.id,
-                        width: width,
-                        language: languageCode,
-                      ),
-                  paperWidth: width,
-                );
+      final profile = await ref
+          .read(printerPrintProfileStoreProvider)
+          .read(printer);
+      // Check permission for every language and mode. The response must not
+      // replace the displayed invoice snapshot or change its product ordering.
+      await ref
+          .read(invoicesRepositoryProvider)
+          .printData(widget.sale.id, width: width, language: languageCode);
+      // All thermal tickets use the exact preview, including images and text
+      // shaping. Native text rendering cannot preserve that visual contract.
+      final bytes = await _rasterBytes(profile);
       await ref
           .read(printerTestServiceProvider)
-          .send(printer: printer, bytes: bytes);
+          .send(printer: printer, bytes: bytes, profile: profile);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(SalesStrings.of(context)('sentToPrinter'))),
@@ -254,13 +245,35 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
     context,
   ).showSnackBar(SnackBar(content: Text(message)));
 
+  Future<void> _printSettings() async {
+    if (_busy) return;
+    final printer = await _requirePrinter();
+    if (printer == null || !mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => PrinterPrintSettingsScreen(printer: printer),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = SalesStrings.of(context);
     final spec = InvoicePaperSpec.of(_paper);
     final data = InvoiceDocumentData(sale: widget.sale);
     return Scaffold(
-      appBar: AppBar(title: Text(t('invoicePreview'))),
+      appBar: AppBar(
+        title: Text(t('invoicePreview')),
+        actions: [
+          if (widget.canPrint)
+            IconButton(
+              key: const Key('printer-local-settings'),
+              tooltip: 'Réglages de transmission',
+              onPressed: _busy ? null : _printSettings,
+              icon: const Icon(Icons.tune),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Material(
@@ -290,8 +303,10 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
                       ButtonSegment(value: InvoicePaper.a4, label: Text('A4')),
                     ],
                     selected: {_paper},
-                    onSelectionChanged: (selection) =>
-                        setState(() => _paper = selection.first),
+                    onSelectionChanged: _busy
+                        ? null
+                        : (selection) =>
+                              setState(() => _paper = selection.first),
                   ),
                   if (_printer != null) ...[
                     const SizedBox(height: 6),
@@ -321,7 +336,12 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
                         padding: const EdgeInsets.all(24),
                         child: RepaintBoundary(
                           key: _documentKey,
-                          child: InvoiceDocumentView(data: data, paper: _paper),
+                          child: InvoiceDocumentView(
+                            key: _documentViewKey,
+                            data: data,
+                            paper: _paper,
+                            logoLoader: ref.watch(invoiceLogoLoaderProvider),
+                          ),
                         ),
                       ),
                     ),

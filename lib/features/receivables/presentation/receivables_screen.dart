@@ -2,7 +2,9 @@ import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/core/errors/app_failure.dart';
 import 'package:app_alim_gen_mobile/core/navigation/module_scaffold.dart';
 import 'package:app_alim_gen_mobile/core/permissions/permission_service.dart';
+import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
 import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
 import 'package:app_alim_gen_mobile/features/receivables/domain/receivable.dart';
 import 'package:app_alim_gen_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -181,6 +183,8 @@ class _ReceivableDetailScreenState
   ReceivableAccount? _account;
   Object? _error;
   bool _loading = true;
+  int _invoicePage = 1, _paymentPage = 1, _openingPage = 1;
+  int _request = 0;
 
   @override
   void initState() {
@@ -188,7 +192,17 @@ class _ReceivableDetailScreenState
     Future.microtask(_load);
   }
 
-  Future<void> _load() async {
+  Future<void> _load({
+    int? page,
+    int? paymentsPage,
+    int? openingPage,
+    bool reset = false,
+  }) async {
+    if (reset) _invoicePage = _paymentPage = _openingPage = 1;
+    _invoicePage = page ?? _invoicePage;
+    _paymentPage = paymentsPage ?? _paymentPage;
+    _openingPage = openingPage ?? _openingPage;
+    final request = ++_request;
     setState(() {
       _loading = true;
       _error = null;
@@ -196,12 +210,24 @@ class _ReceivableDetailScreenState
     try {
       final account = await ref
           .read(receivablesRepositoryProvider)
-          .getAccount(widget.clientId);
-      if (mounted) setState(() => _account = account);
+          .getAccount(
+            widget.clientId,
+            page: _invoicePage,
+            paymentsPage: _paymentPage,
+            openingPage: _openingPage,
+          );
+      if (mounted && request == _request) {
+        setState(() {
+          _account = account;
+          _invoicePage = account.invoicePage?.page ?? 1;
+          _paymentPage = account.paymentPage?.page ?? 1;
+          _openingPage = account.openingPaymentPage?.page ?? 1;
+        });
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = error);
+      if (mounted && request == _request) setState(() => _error = error);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && request == _request) setState(() => _loading = false);
     }
   }
 
@@ -213,7 +239,11 @@ class _ReceivableDetailScreenState
     return Scaffold(
       appBar: AppBar(title: Text(widget.clientName)),
       floatingActionButton:
-          canAdd && _account != null && _account!.invoices.any((e) => !e.isPaid)
+          canAdd &&
+              !_loading &&
+              _error == null &&
+              _account != null &&
+              (double.tryParse(_account!.balanceDue) ?? 0) > 0
           ? FloatingActionButton.extended(
               onPressed: _addPayment,
               icon: const Icon(Icons.add_card),
@@ -290,33 +320,67 @@ class _ReceivableDetailScreenState
             trailing: Text('${invoice.balance} DZD'),
           ),
         ),
+        if (account.invoicePage case final page?)
+          _HistoryPager(
+            name: 'invoices',
+            page: page,
+            onPrevious: () => _load(page: page.page - 1),
+            onNext: () => _load(page: page.page + 1),
+          ),
         const Divider(),
         Text(t.text('payments'), style: Theme.of(context).textTheme.titleLarge),
-        ...account.payments.map(
-          (payment) => ListTile(
-            enabled: !payment.cancelled,
-            leading: Icon(payment.cancelled ? Icons.cancel : Icons.payments),
-            title: Text('${payment.reference} · ${payment.amount} DZD'),
-            subtitle: Text(
-              payment.cancelled
-                  ? '${t.text('cancelled')}: ${payment.cancellationReason}'
-                  : [
-                      if (payment.openingBalance) t.text('openingBalance'),
-                      if (payment.externalReference.isNotEmpty)
-                        payment.externalReference,
-                    ].join(' · '),
-            ),
-            trailing: canCancel && !payment.cancelled
-                ? IconButton(
-                    icon: const Icon(Icons.cancel_outlined),
-                    tooltip: t.text('cancelPayment'),
-                    onPressed: () => _cancelPayment(payment),
-                  )
-                : null,
+        ...account.payments
+            .where((payment) => !payment.openingBalance)
+            .map((payment) => _paymentTile(payment, canCancel)),
+        if (account.paymentPage case final page?)
+          _HistoryPager(
+            name: 'payments',
+            page: page,
+            onPrevious: () => _load(paymentsPage: page.page - 1),
+            onNext: () => _load(paymentsPage: page.page + 1),
           ),
+        const Divider(),
+        Text(
+          t.text('openingBalancePayments'),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
+        ...account.payments
+            .where((payment) => payment.openingBalance)
+            .map((payment) => _paymentTile(payment, canCancel)),
+        if (account.openingPaymentPage case final page?)
+          _HistoryPager(
+            name: 'opening',
+            page: page,
+            onPrevious: () => _load(openingPage: page.page - 1),
+            onNext: () => _load(openingPage: page.page + 1),
+          ),
         const SizedBox(height: 96),
       ],
+    );
+  }
+
+  Widget _paymentTile(ReceivablePayment payment, bool canCancel) {
+    final t = AppLocalizations.of(context);
+    return ListTile(
+      enabled: !payment.cancelled,
+      leading: Icon(payment.cancelled ? Icons.cancel : Icons.payments),
+      title: Text('${payment.reference} · ${payment.amount} DZD'),
+      subtitle: Text(
+        payment.cancelled
+            ? '${t.text('cancelled')}: ${payment.cancellationReason}'
+            : [
+                if (payment.openingBalance) t.text('openingBalance'),
+                if (payment.externalReference.isNotEmpty)
+                  payment.externalReference,
+              ].join(' · '),
+      ),
+      trailing: canCancel && !payment.cancelled
+          ? IconButton(
+              icon: const Icon(Icons.cancel_outlined),
+              tooltip: t.text('cancelPayment'),
+              onPressed: () => _cancelPayment(payment),
+            )
+          : null,
     );
   }
 
@@ -329,7 +393,7 @@ class _ReceivableDetailScreenState
         balanceDue: account.balanceDue,
       ),
     );
-    if (saved == true) await _load();
+    if (saved == true) await _load(reset: true);
   }
 
   Future<void> _cancelPayment(ReceivablePayment payment) async {
@@ -370,9 +434,47 @@ class _ReceivableDetailScreenState
             .read(paymentsRepositoryProvider)
             .cancel(payment.id, reason.text.trim());
       }
-      await _load();
+      await _load(reset: true);
     }
     reason.dispose();
+  }
+}
+
+class _HistoryPager extends StatelessWidget {
+  const _HistoryPager({
+    required this.name,
+    required this.page,
+    required this.onPrevious,
+    required this.onNext,
+  });
+  final String name;
+  final ReceivableHistoryPage page;
+  final VoidCallback onPrevious, onNext;
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return Row(
+      children: [
+        IconButton(
+          key: ValueKey('$name-previous'),
+          tooltip: t.text('previousPage'),
+          onPressed: page.hasPrevious ? onPrevious : null,
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Expanded(
+          child: Text(
+            '${t.text('historyPage')} ${page.page} / ${page.pages} · ${page.count}',
+            textAlign: TextAlign.center,
+          ),
+        ),
+        IconButton(
+          key: ValueKey('$name-next'),
+          tooltip: t.text('nextPage'),
+          onPressed: page.hasNext ? onNext : null,
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
   }
 }
 
@@ -386,12 +488,26 @@ class _PaymentDialog extends ConsumerStatefulWidget {
 
 class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   final _form = GlobalKey<FormState>();
+  final _intentKey = const Uuid().v4();
+  late final int _intentEpoch;
+  String? _intentCreatedAt;
   final _amount = TextEditingController();
   final _reference = TextEditingController();
   final _notes = TextEditingController();
   String _type = 'cash';
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _intentEpoch = ref.read(sessionEpochProvider);
+  }
+
+  bool get _sameIntentSession => ref.read(sessionEpochProvider) == _intentEpoch;
+
+  String get _changedSessionMessage =>
+      'La session a changé. Fermez ce formulaire et rouvrez le compte client.';
 
   @override
   void dispose() {
@@ -402,7 +518,14 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    if (!_sameIntentSession) {
+      setState(() => _error = _changedSessionMessage);
+      return;
+    }
     if (!(_form.currentState?.validate() ?? false)) return;
+    final cancelToken = ref.read(sessionBoundaryProvider).cancelToken;
+    _intentCreatedAt ??= DateTime.now().toIso8601String();
     setState(() => _saving = true);
     try {
       await ref
@@ -411,16 +534,27 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
             clientId: widget.clientId,
             amount: _amount.text.replaceAll(',', '.'),
             paymentType: _type,
-            createdAt: DateTime.now().toIso8601String(),
+            createdAt: _intentCreatedAt!,
             externalReference: _reference.text.trim(),
             notes: _notes.text.trim(),
-            idempotencyKey: const Uuid().v4(),
+            idempotencyKey: _intentKey,
+            cancelToken: cancelToken,
           );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        if (!_sameIntentSession) {
+          setState(() => _error = _changedSessionMessage);
+          return;
+        }
+        Navigator.pop(context, true);
+      }
     } catch (error) {
       if (mounted) {
         setState(
-          () => _error = error is AppFailure ? error.message : error.toString(),
+          () => _error = !_sameIntentSession
+              ? _changedSessionMessage
+              : error is AppFailure
+              ? error.message
+              : error.toString(),
         );
       }
     } finally {
@@ -431,6 +565,7 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final sales = SalesStrings.of(context);
     return AlertDialog(
       title: Text(t.text('newPayment')),
       content: Form(
@@ -448,14 +583,14 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: InputDecoration(labelText: t.text('amount')),
+                decoration: InputDecoration(labelText: sales('amount')),
                 validator: (value) {
                   final amount = double.tryParse(
                     (value ?? '').replaceAll(',', '.'),
                   );
                   final due = double.tryParse(widget.balanceDue) ?? 0;
                   if (amount == null || amount <= 0) {
-                    return t.text('invalidAmount');
+                    return sales('invalidAmount');
                   }
                   if (amount > due) return t.text('amountAboveClientDebt');
                   return null;
@@ -463,12 +598,12 @@ class _PaymentDialogState extends ConsumerState<_PaymentDialog> {
               ),
               DropdownButtonFormField<String>(
                 initialValue: _type,
-                decoration: InputDecoration(labelText: t.text('paymentMethod')),
+                decoration: InputDecoration(labelText: sales('paymentMethod')),
                 items: ['cash', 'cheque', 'transfer']
                     .map(
                       (value) => DropdownMenuItem(
                         value: value,
-                        child: Text(t.text(value)),
+                        child: Text(sales(value)),
                       ),
                     )
                     .toList(growable: false),

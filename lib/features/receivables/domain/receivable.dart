@@ -88,6 +88,44 @@ class ReceivablePayment {
   );
 }
 
+class ReceivableHistoryPage {
+  const ReceivableHistoryPage({
+    required this.page,
+    required this.pages,
+    required this.count,
+    required this.pageSize,
+  });
+  final int page, pages, count, pageSize;
+  bool get hasNext => page < pages;
+  bool get hasPrevious => page > 1;
+
+  factory ReceivableHistoryPage.fromJson(Map<String, dynamic> json) {
+    int integer(String key, int minimum) {
+      final value = json[key];
+      if (value is! int || value < minimum) {
+        throw const FormatException('Pagination invalide.');
+      }
+      return value;
+    }
+
+    final result = ReceivableHistoryPage(
+      page: integer('page', 1),
+      pages: integer('pages', 1),
+      count: integer('count', 0),
+      pageSize: integer('page_size', 1),
+    );
+    if (result.pageSize > 25 ||
+        result.page > result.pages ||
+        result.pages !=
+            (result.count == 0 ? 1 : (result.count / result.pageSize).ceil()) ||
+        json['has_next'] != result.hasNext ||
+        json['has_previous'] != result.hasPrevious) {
+      throw const FormatException('Pagination incohérente.');
+    }
+    return result;
+  }
+}
+
 class ReceivableAccount {
   const ReceivableAccount({
     required this.clientId,
@@ -99,11 +137,58 @@ class ReceivableAccount {
     required this.unreconciledCount,
     required this.invoices,
     required this.payments,
+    this.invoicePage,
+    this.paymentPage,
+    this.openingPaymentPage,
   });
   final int clientId, unreconciledCount;
   final String clientName, totalInvoiced, totalPaid, balanceDue, openingBalance;
   final List<ReceivableInvoice> invoices;
   final List<ReceivablePayment> payments;
+  final ReceivableHistoryPage? invoicePage, paymentPage, openingPaymentPage;
+
+  factory ReceivableAccount.fromPagedJson(Map<String, dynamic> json) {
+    if (json['contract'] != 'receivable-account-page-v1' ||
+        json['pagination'] is! Map) {
+      throw const FormatException('Contrat de compte paginé indisponible.');
+    }
+    final metadata = json['pagination'] as Map;
+    ReceivableHistoryPage history(String key) {
+      final raw = metadata[key];
+      if (raw is! Map || json[key] is! List) {
+        throw const FormatException('Historique paginé invalide.');
+      }
+      final page = ReceivableHistoryPage.fromJson(
+        Map<String, dynamic>.from(raw),
+      );
+      final length = (json[key] as List).length;
+      // Counts and rows may change between server queries during an operation.
+      // Enforce the memory bound without rejecting a legitimate shorter page.
+      if (length > page.pageSize) {
+        throw const FormatException('Historique non borné.');
+      }
+      return page;
+    }
+
+    final invoices = history('invoices');
+    final payments = history('payments');
+    final opening = history('opening_balance_payments');
+    final account = ReceivableAccount.fromJson(json);
+    return ReceivableAccount(
+      clientId: account.clientId,
+      clientName: account.clientName,
+      totalInvoiced: account.totalInvoiced,
+      totalPaid: account.totalPaid,
+      balanceDue: account.balanceDue,
+      openingBalance: account.openingBalance,
+      unreconciledCount: account.unreconciledCount,
+      invoices: account.invoices,
+      payments: account.payments,
+      invoicePage: invoices,
+      paymentPage: payments,
+      openingPaymentPage: opening,
+    );
+  }
 
   factory ReceivableAccount.fromJson(Map<String, dynamic> json) {
     final client = Map<String, dynamic>.from(json['client'] as Map);

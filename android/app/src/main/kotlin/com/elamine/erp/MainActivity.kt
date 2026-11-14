@@ -41,13 +41,29 @@ class MainActivity : FlutterFragmentActivity() {
                             } else {
                                 ioExecutor.execute {
                                     try {
+                                        val existing = socket
+                                        if (existing?.isConnected == true &&
+                                            existing.remoteDevice.address.equals(address, ignoreCase = true)) {
+                                            runOnUiThread { result.success(true) }
+                                            return@execute
+                                        }
                                         socket?.close()
+                                        socket = null
                                         adapter?.cancelDiscovery()
                                         val candidate = adapter
                                             ?.getRemoteDevice(address)
                                             ?.createRfcommSocketToServiceRecord(serialUuid)
                                             ?: error("Bluetooth indisponible")
-                                        candidate.connect()
+                                        try {
+                                            candidate.connect()
+                                        } catch (error: Exception) {
+                                            try {
+                                                candidate.close()
+                                            } catch (_: Exception) {
+                                                // Keep the original connect failure.
+                                            }
+                                            throw error
+                                        }
                                         socket = candidate
                                         runOnUiThread { result.success(true) }
                                     } catch (error: Exception) {
@@ -69,8 +85,22 @@ class MainActivity : FlutterFragmentActivity() {
                                         if (current == null || !current.isConnected) {
                                             error("Imprimante non connectée")
                                         }
-                                        current.outputStream.write(bytes)
-                                        current.outputStream.flush()
+                                        // Dart paces and serializes the whole job. Respect the
+                                        // negotiated RFCOMM packet size here; this is not the
+                                        // printer's undocumented receive-buffer capacity.
+                                        val output = current.outputStream
+                                        val negotiatedSize = current.maxTransmitPacketSize
+                                        // Some RFCOMM stacks report no packet limit (0).
+                                        // Dart has already bounded this write to the local profile.
+                                        val chunkSize = if (negotiatedSize > 0) negotiatedSize
+                                            else bytes.size.coerceAtLeast(1)
+                                        var offset = 0
+                                        while (offset < bytes.size) {
+                                            val length = minOf(chunkSize, bytes.size - offset)
+                                            output.write(bytes, offset, length)
+                                            output.flush()
+                                            offset += length
+                                        }
                                         runOnUiThread { result.success(true) }
                                     } catch (error: Exception) {
                                         runOnUiThread {
@@ -84,9 +114,11 @@ class MainActivity : FlutterFragmentActivity() {
                             ioExecutor.execute {
                                 try {
                                     socket?.close()
-                                } finally {
                                     socket = null
                                     runOnUiThread { result.success(null) }
+                                } catch (error: Exception) {
+                                    socket = null
+                                    runOnUiThread { result.error("disconnect_failure", error.message, null) }
                                 }
                             }
                         }

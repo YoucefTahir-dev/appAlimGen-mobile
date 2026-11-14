@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:app_alim_gen_mobile/features/printers/domain/printer_print_profile.dart';
 
 class PrinterDevice {
   const PrinterDevice({required this.name, required this.address});
@@ -19,16 +20,19 @@ abstract class PrinterDriver {
     required String printerName,
     required int paperWidth,
     required DateTime now,
+    PrinterPrintProfile profile = const PrinterPrintProfile(),
   });
 
   Uint8List invoiceTicket({
     required Map<String, dynamic> data,
     required int paperWidth,
+    PrinterPrintProfile profile = const PrinterPrintProfile(),
   });
 
   Uint8List rasterTicket({
     required Uint8List rgba,
     required int width,
     required int height,
+    PrinterPrintProfile profile = const PrinterPrintProfile(),
   });
 }

@@ -87,20 +87,33 @@ class SalesRepository extends _BusinessRepository<SaleSummary> {
 
   Future<SaleDetails> create(
     SaleWriteRequest request,
-    String idempotencyKey,
-  ) async => SaleDetails.fromJson(
-    await _postObject('sales/', request.toJson(), idempotencyKey),
+    String idempotencyKey, {
+    CancelToken? cancelToken,
+  }) async => SaleDetails.fromJson(
+    await _postObject(
+      'sales/',
+      request.toJson(),
+      idempotencyKey,
+      cancelToken: cancelToken,
+    ),
   );
   Future<SaleDetails> update(
     int id,
     SaleWriteRequest request,
-    String idempotencyKey,
-  ) async {
+    String idempotencyKey, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       final response = await dio.patch<dynamic>(
         'sales/$id/',
+        cancelToken: cancelToken,
         data: request.toJson(),
-        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': idempotencyKey,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
       return SaleDetails.fromJson(ApiEnvelope.object(response.data));
     } catch (error) {
@@ -142,13 +155,20 @@ class SalesRepository extends _BusinessRepository<SaleSummary> {
   Future<Map<String, dynamic>> _postObject(
     String path,
     Map<String, dynamic> data,
-    String key,
-  ) async {
+    String key, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       final r = await dio.post<dynamic>(
         path,
+        cancelToken: cancelToken,
         data: data,
-        options: Options(headers: {'Idempotency-Key': key}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': key,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
       return ApiEnvelope.object(r.data);
     } catch (e) {
@@ -187,13 +207,20 @@ class PurchasesRepository extends _BusinessRepository<PurchaseSummary> {
     : super(dio, errors, 'purchases/', PurchaseSummary.fromJson);
   Future<PurchaseSummary> create(
     PurchaseWriteRequest request,
-    String key,
-  ) async {
+    String key, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       final r = await dio.post<dynamic>(
         'purchases/',
+        cancelToken: cancelToken,
         data: request.toJson(),
-        options: Options(headers: {'Idempotency-Key': key}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': key,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
       return PurchaseSummary.fromJson(ApiEnvelope.object(r.data));
     } catch (e) {
@@ -213,13 +240,20 @@ class PurchasesRepository extends _BusinessRepository<PurchaseSummary> {
   Future<PurchaseDetails> update(
     int id,
     PurchaseWriteRequest request,
-    String key,
-  ) async {
+    String key, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       final response = await dio.patch<dynamic>(
         'purchases/$id/',
+        cancelToken: cancelToken,
         data: request.toJson(),
-        options: Options(headers: {'Idempotency-Key': key}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': key,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
       return PurchaseDetails.fromJson(ApiEnvelope.object(response.data));
     } catch (error) {
@@ -308,12 +342,22 @@ class ExpensesRepository extends _BusinessRepository<ExpenseSummary> {
 class PaymentsRepository extends _BusinessRepository<PaymentSummary> {
   const PaymentsRepository(Dio dio, ErrorMapper errors)
     : super(dio, errors, 'payments/', PaymentSummary.fromJson);
-  Future<PaymentSummary> create(PaymentWriteRequest request, String key) async {
+  Future<PaymentSummary> create(
+    PaymentWriteRequest request,
+    String key, {
+    CancelToken? cancelToken,
+  }) async {
     try {
       final r = await dio.post<dynamic>(
         'payments/',
+        cancelToken: cancelToken,
         data: request.toJson(),
-        options: Options(headers: {'Idempotency-Key': key}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': key,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
       return PaymentSummary.fromJson(ApiEnvelope.object(r.data));
     } catch (e) {

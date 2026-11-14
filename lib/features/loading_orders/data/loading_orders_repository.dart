@@ -52,7 +52,12 @@ class LoadingOrdersRepository {
       final r = await _dio.post<dynamic>(
         'loading-orders/',
         data: request.toJson(),
-        options: Options(headers: {'Idempotency-Key': key}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': key,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
       return LoadingOrderSummary.fromJson(ApiEnvelope.object(r.data));
     } catch (e) {
@@ -83,25 +88,37 @@ class LoadingOrdersRepository {
     }
   }
 
-  Future<LoadingOrderSummary> validateLoadingOrder(int id, String key) =>
-      _postAction(id, 'validate', key: key);
+  Future<LoadingOrderSummary> validateLoadingOrder(
+    int id,
+    String key, {
+    CancelToken? cancelToken,
+  }) => _postAction(id, 'validate', key: key, cancelToken: cancelToken);
 
-  Future<LoadingOrderSummary> cancelLoadingOrder(int id) =>
-      _postAction(id, 'cancel');
+  Future<LoadingOrderSummary> cancelLoadingOrder(
+    int id, {
+    CancelToken? cancelToken,
+  }) => _postAction(id, 'cancel', cancelToken: cancelToken);
 
-  Future<LoadingOrderSummary> closeLoadingOrder(int id, String key) =>
-      _postAction(id, 'close', key: key);
+  Future<LoadingOrderSummary> closeLoadingOrder(
+    int id,
+    String key, {
+    CancelToken? cancelToken,
+  }) => _postAction(id, 'close', key: key, cancelToken: cancelToken);
 
   Future<LoadingOrderSummary> _postAction(
     int id,
     String action, {
     String? key,
+    CancelToken? cancelToken,
   }) async {
     try {
       final r = await _dio.post<dynamic>(
         'loading-orders/$id/$action/',
+        cancelToken: cancelToken,
         options: Options(
-          headers: key == null ? null : {'Idempotency-Key': key},
+          headers: key == null
+              ? null
+              : {'Idempotency-Key': key, 'Idempotency-Policy': 'required-v1'},
         ),
       );
       return LoadingOrderSummary.fromJson(ApiEnvelope.object(r.data));

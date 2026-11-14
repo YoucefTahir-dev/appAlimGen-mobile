@@ -33,10 +33,26 @@ void main() {
       queryParameters: {'search': '', 'status': 'debtors', 'page_size': 100},
     );
     adapter.onGet(
-      'receivables/7/',
+      'receivables/7/account-page/',
       (server) => server.reply(200, {
         'success': true,
         'data': {
+          'contract': 'receivable-account-page-v1',
+          'pagination': {
+            for (final key in [
+              'invoices',
+              'payments',
+              'opening_balance_payments',
+            ])
+              key: {
+                'page': 1,
+                'pages': 1,
+                'count': 1,
+                'page_size': 25,
+                'has_next': false,
+                'has_previous': false,
+              },
+          },
           'client': {'id': 7, 'name': 'Client A'},
           'total_invoiced': '150.00',
           'total_paid': '40.00',
@@ -80,6 +96,12 @@ void main() {
           ],
         },
       }),
+      queryParameters: {
+        'page': 1,
+        'payments_page': 1,
+        'opening_page': 1,
+        'page_size': 25,
+      },
     );
 
     final list = await repository.fetch();

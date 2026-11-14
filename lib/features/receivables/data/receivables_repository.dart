@@ -32,10 +32,27 @@ class ReceivablesRepository {
     }
   }
 
-  Future<ReceivableAccount> getAccount(int clientId) async {
+  Future<ReceivableAccount> getAccount(
+    int clientId, {
+    int page = 1,
+    int paymentsPage = 1,
+    int openingPage = 1,
+  }) async {
     try {
-      final response = await _dio.get<dynamic>('receivables/$clientId/');
-      return ReceivableAccount.fromJson(ApiEnvelope.object(response.data));
+      if (page < 1 || paymentsPage < 1 || openingPage < 1) {
+        throw const FormatException('Page invalide.');
+      }
+      // No legacy fallback: it would silently reload the complete history.
+      final response = await _dio.get<dynamic>(
+        'receivables/$clientId/account-page/',
+        queryParameters: {
+          'page': page,
+          'payments_page': paymentsPage,
+          'opening_page': openingPage,
+          'page_size': 25,
+        },
+      );
+      return ReceivableAccount.fromPagedJson(ApiEnvelope.object(response.data));
     } catch (error) {
       throw _errors.map(error);
     }
@@ -49,6 +66,7 @@ class ReceivablesRepository {
     String? createdAt,
     String? externalReference,
     String? notes,
+    CancelToken? cancelToken,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -62,8 +80,14 @@ class ReceivablesRepository {
       if (notes != null) payload['notes'] = notes;
       await _dio.post<dynamic>(
         'receivables/$clientId/allocate-payment/',
+        cancelToken: cancelToken,
         data: payload,
-        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+        options: Options(
+          headers: {
+            'Idempotency-Key': idempotencyKey,
+            'Idempotency-Policy': 'required-v1',
+          },
+        ),
       );
     } catch (error) {
       throw _errors.map(error);

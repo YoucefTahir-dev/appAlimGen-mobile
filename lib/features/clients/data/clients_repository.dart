@@ -28,7 +28,10 @@ class ClientsRepository {
       ClientDetails.fromJson(await _crud.create('clients/', request.toJson()));
   Future<ClientDetails> update(int id, ClientWriteRequest request) async =>
       ClientDetails.fromJson(
-        await _crud.patch('clients/$id/', request.toJson()),
+        await _crud.patch(
+          'clients/$id/',
+          request.toJson(includeBalance: false),
+        ),
       );
   Future<void> delete(int id) => _crud.delete('clients/$id/');
 }

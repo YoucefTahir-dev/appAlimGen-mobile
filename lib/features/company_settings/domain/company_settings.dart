@@ -10,6 +10,8 @@ class CompanySettings {
     required this.articleNumber,
     required this.taxRate,
     this.logoUrl,
+    this.shareCapital,
+    this.supportsShareCapital = true,
   });
 
   final String companyName;
@@ -22,6 +24,8 @@ class CompanySettings {
   final String articleNumber;
   final String taxRate;
   final String? logoUrl;
+  final String? shareCapital;
+  final bool supportsShareCapital;
 
   factory CompanySettings.fromJson(Map<String, dynamic> json) =>
       CompanySettings(
@@ -35,6 +39,8 @@ class CompanySettings {
         articleNumber: json['article_number']?.toString() ?? '',
         taxRate: json['tax_rate']?.toString() ?? '19.00',
         logoUrl: json['logo_url']?.toString(),
+        shareCapital: json['share_capital']?.toString(),
+        supportsShareCapital: json.containsKey('share_capital'),
       );
 
   Map<String, dynamic> toJson() => {
@@ -47,5 +53,6 @@ class CompanySettings {
     'nis': nis,
     'article_number': articleNumber,
     'tax_rate': taxRate,
+    if (supportsShareCapital) 'share_capital': shareCapital,
   };
 }

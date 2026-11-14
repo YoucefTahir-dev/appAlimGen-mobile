@@ -134,7 +134,7 @@ void main() {
       ),
     );
     expect(find.text('TOTAL TTC'), findsNWidgets(2));
-    expect(find.text('Entreprise test'), findsOneWidget);
+    expect(find.text('Entreprise test'), findsNWidgets(3));
     expect(find.text('FAC-2026-000007'), findsOneWidget);
   });
 
