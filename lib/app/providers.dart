@@ -9,11 +9,13 @@ import 'package:app_alim_gen_mobile/features/auth/data/biometric_preference_stor
 import 'package:app_alim_gen_mobile/features/auth/data/biometric_session_manager.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/session_repository.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/data/business_repositories.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_logo_loader.dart';
 import 'package:app_alim_gen_mobile/features/clients/data/clients_repository.dart';
 import 'package:app_alim_gen_mobile/features/company_settings/data/company_settings_repository.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/data/dashboard_repository.dart';
 import 'package:app_alim_gen_mobile/features/loading_orders/data/loading_orders_repository.dart';
 import 'package:app_alim_gen_mobile/features/printers/data/printers_repository.dart';
+import 'package:app_alim_gen_mobile/features/printers/data/printer_print_profile_store.dart';
 import 'package:app_alim_gen_mobile/features/printers/services/bluetooth_printer_transport.dart';
 import 'package:app_alim_gen_mobile/features/printers/services/esc_pos_printer_driver.dart';
 import 'package:app_alim_gen_mobile/features/printers/services/printer_test_service.dart';
@@ -98,6 +100,9 @@ final invoicesRepositoryProvider = Provider<InvoicesRepository>(
     ref.watch(errorMapperProvider),
   ),
 );
+final invoiceLogoLoaderProvider = Provider<InvoiceLogoLoader>(
+  (ref) => const InvoiceLogoLoader(),
+);
 final suppliersRepositoryProvider = Provider<SuppliersRepository>(
   (ref) => SuppliersRepository(
     ref.watch(apiClientProvider).dio,
@@ -162,6 +167,10 @@ final printersRepositoryProvider = Provider<PrintersRepository>(
 final printerTestServiceProvider = Provider<PrinterTestService>(
   (ref) =>
       PrinterTestService(BluetoothPrinterTransport(), EscPosPrinterDriver()),
+);
+
+final printerPrintProfileStoreProvider = Provider<PrinterPrintProfileStore>(
+  (ref) => LocalPrinterPrintProfileStore(ref.watch(secureStorageProvider)),
 );
 
 class LocaleController extends Notifier<Locale> {

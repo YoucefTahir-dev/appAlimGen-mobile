@@ -78,4 +78,60 @@ class InvoiceDocumentData {
   String get paymentType => sale.paymentType;
   String get paymentStatus => sale.paymentStatus;
   bool get showTicketInformation => sale.showLegalInformation;
+
+  /// Both preview and print consume the same server-valued snapshot in the
+  /// same list order. A second API response must not reorder or refresh it.
+  Map<String, dynamic> toTicketPayload() => {
+    if (showTicketInformation) ...{
+      'invoice_number': number,
+      'ticket_number': ticketNumber,
+      'issued_at': issuedAt,
+    },
+    'show_ticket_information': showTicketInformation,
+    'show_legal_information': showTicketInformation,
+    'company': {
+      'name_fr': company.name,
+      'logo_url': company.logoUrl,
+      if (showTicketInformation) ...{
+        'address': company.address,
+        'phone': company.phone,
+        'tax_number': company.taxNumber,
+        'nis': company.nis,
+        'rc_number': company.rcNumber,
+        'article_number': company.articleNumber,
+      },
+    },
+    if (showTicketInformation)
+      'customer': {
+        'name': client.name,
+        'phone': client.phone,
+        'address': client.address,
+        'tax_number': client.taxNumber,
+        'nis': client.nis,
+        'trade_register_number': client.tradeRegisterNumber,
+        'article_number': client.articleNumber,
+      },
+    'items': [
+      for (final line in lines)
+        {
+          'name': line.productName,
+          'quantity': line.quantity,
+          'packaging': line.packagingName,
+          'unit_price': line.unitPrice,
+          'total': line.total,
+        },
+    ],
+    'totals': {
+      'total_ttc': total,
+      if (showTicketInformation) ...{
+        'total_ht': subtotal,
+        'discount': discount,
+        'tax_rate': taxRate,
+        'tax_amount': taxAmount,
+        'amount_paid': amountPaid,
+        'balance_due': balanceDue,
+        'payment_method': paymentType,
+      },
+    },
+  };
 }

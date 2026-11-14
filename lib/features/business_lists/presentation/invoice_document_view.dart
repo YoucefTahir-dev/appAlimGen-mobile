@@ -1,20 +1,97 @@
 import 'package:app_alim_gen_mobile/features/business_lists/domain/invoice_document.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_logo_loader.dart';
 import 'package:flutter/material.dart';
 
-class InvoiceDocumentView extends StatelessWidget {
+class InvoiceDocumentView extends StatefulWidget {
   const InvoiceDocumentView({
     super.key,
     required this.data,
     required this.paper,
+    this.logoLoader = const InvoiceLogoLoader(),
   });
 
   final InvoiceDocumentData data;
   final InvoicePaper paper;
+  final InvoiceLogoLoader logoLoader;
+
+  @override
+  State<InvoiceDocumentView> createState() => InvoiceDocumentViewState();
+}
+
+class InvoiceDocumentViewState extends State<InvoiceDocumentView> {
+  ImageInfo? _logo;
+  Future<void> _logoReady = Future<void>.value();
+  int _logoRequest = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogo();
+  }
+
+  @override
+  void didUpdateWidget(InvoiceDocumentView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data.company.logoUrl != widget.data.company.logoUrl ||
+        oldWidget.data.showTicketInformation !=
+            widget.data.showTicketInformation ||
+        oldWidget.paper != widget.paper ||
+        oldWidget.logoLoader != widget.logoLoader) {
+      _loadLogo();
+    }
+  }
+
+  void _loadLogo() {
+    final request = ++_logoRequest;
+    _logo?.dispose();
+    _logo = null;
+    _logoReady = _resolveLogo(request);
+  }
+
+  Future<void> _resolveLogo(int request) async {
+    if (widget.paper == InvoicePaper.a4 || widget.data.showTicketInformation) {
+      return;
+    }
+    ImageInfo? image;
+    try {
+      image = await widget.logoLoader.load(widget.data.company.logoUrl);
+    } catch (_) {
+      // Invalid or unavailable logos are omitted without inventing a fallback.
+    }
+    if (!mounted || request != _logoRequest) {
+      image?.dispose();
+      return;
+    }
+    setState(() => _logo = image);
+  }
+
+  /// The exact decoded image displayed here is also captured for ESC/POS.
+  /// Waiting for its layout avoids auto-print racing a slow media response.
+  Future<void> prepareForPrint() async {
+    await _logoReady;
+    if (!mounted) return;
+    if (widget.paper == InvoicePaper.a4 || widget.data.showTicketInformation) {
+      // Complete documents retain their existing bundled branding. Await its
+      // decode too: auto-print may start on the very first preview frame.
+      await precacheImage(const AssetImage('assets/images/logo.png'), context);
+    }
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+  }
+
+  @override
+  void dispose() {
+    _logoRequest++;
+    _logo?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final data = widget.data;
+    final paper = widget.paper;
     final spec = InvoicePaperSpec.of(paper);
     return UnconstrainedBox(
       constrainedAxis: Axis.horizontal,
@@ -49,7 +126,7 @@ class InvoiceDocumentView extends StatelessWidget {
           ),
           child: paper == InvoicePaper.a4
               ? _A4Invoice(data: data)
-              : _ThermalInvoice(data: data, paper: paper),
+              : _ThermalInvoice(data: data, paper: paper, logo: _logo),
         ),
       ),
     );
@@ -57,17 +134,18 @@ class InvoiceDocumentView extends StatelessWidget {
 }
 
 class _ThermalInvoice extends StatelessWidget {
-  const _ThermalInvoice({required this.data, required this.paper});
+  const _ThermalInvoice({required this.data, required this.paper, this.logo});
 
   final InvoiceDocumentData data;
   final InvoicePaper paper;
+  final ImageInfo? logo;
 
   @override
   Widget build(BuildContext context) {
     final t = SalesStrings.of(context);
     final compact = paper == InvoicePaper.mm58;
     if (!data.showTicketInformation) {
-      return _MinimalThermalInvoice(data: data, compact: compact);
+      return _MinimalThermalInvoice(data: data, compact: compact, logo: logo);
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -202,10 +280,15 @@ class _ThermalInvoice extends StatelessWidget {
 }
 
 class _MinimalThermalInvoice extends StatelessWidget {
-  const _MinimalThermalInvoice({required this.data, required this.compact});
+  const _MinimalThermalInvoice({
+    required this.data,
+    required this.compact,
+    this.logo,
+  });
 
   final InvoiceDocumentData data;
   final bool compact;
+  final ImageInfo? logo;
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +296,30 @@ class _MinimalThermalInvoice extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (logo != null) ...[
+          Center(
+            child: RawImage(
+              key: const Key('invoice-company-logo'),
+              image: logo!.image,
+              width: compact ? 42 : 58,
+              height: compact ? 42 : 58,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        if (data.company.name.trim().isNotEmpty)
+          Text(
+            data.company.name.trim(),
+            key: const Key('invoice-company-name'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: compact ? 14 : 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        if (logo != null || data.company.name.trim().isNotEmpty)
+          const SizedBox(height: 8),
         for (final line in data.lines) ...[
           Text(
             line.productName,
@@ -333,6 +440,8 @@ class _A4Invoice extends StatelessWidget {
                     ),
                   if (_companyLegal(data.company).isNotEmpty)
                     Text(_companyLegal(data.company).join(' · ')),
+                  if (data.company.shareCapital != null)
+                    Text('Capital social : ${data.company.shareCapital} DZD'),
                 ],
               ),
             ),

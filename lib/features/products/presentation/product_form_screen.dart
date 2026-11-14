@@ -50,6 +50,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool get _usesCarton =>
       _unitMode == 'carton_only' || _unitMode == 'carton_and_piece';
 
+  String get _savedCartonFactor =>
+      _existingCarton?.conversionFactor.toString() ?? '';
+
   bool get _editing => widget.productId != null;
 
   @override
@@ -339,7 +342,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Future<void> _convertHistoricalStock() async {
     final factor = TextEditingController(
-      text: '${_existingCarton?.conversionFactor ?? 30}',
+      text: _savedCartonFactor,
     );
     final backup = TextEditingController();
     final requested = await showDialog<bool>(
@@ -440,7 +443,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Future<void> _correctConditioning() async {
     final factor = TextEditingController(
-      text: '${_existingCarton?.conversionFactor ?? 30}',
+      text: _savedCartonFactor,
     );
     final reason = TextEditingController();
     final requested = await showDialog<bool>(

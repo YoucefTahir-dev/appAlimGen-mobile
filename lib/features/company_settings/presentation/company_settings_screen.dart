@@ -30,12 +30,17 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
       'rc_number',
       'article_number',
       'tax_rate',
+      'share_capital',
     ])
       name: TextEditingController(),
   };
   bool _loading = true;
   bool _saving = false;
+  CompanySettings? _loadedSettings;
   Map<String, String> _errors = const {};
+
+  bool get _supportsShareCapital =>
+      _loadedSettings?.supportsShareCapital ?? false;
 
   bool get _canEdit =>
       ref
@@ -62,6 +67,7 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
   }
 
   void _fill(CompanySettings value) {
+    _loadedSettings = value;
     _fields['company_name']!.text = value.companyName;
     _fields['address']!.text = value.address;
     _fields['phone']!.text = value.phone;
@@ -71,12 +77,14 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
     _fields['rc_number']!.text = value.rcNumber;
     _fields['article_number']!.text = value.articleNumber;
     _fields['tax_rate']!.text = value.taxRate;
+    _fields['share_capital']!.text = value.shareCapital ?? '';
   }
 
   Future<void> _save() async {
     setState(() => _errors = const {});
     if (!_formKey.currentState!.validate() || _saving || !_canEdit) return;
     setState(() => _saving = true);
+    final submittedShareCapital = _supportsShareCapital;
     try {
       final saved = await ref
           .read(companySettingsRepositoryProvider)
@@ -91,13 +99,25 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
               nis: _value('nis'),
               articleNumber: _value('article_number'),
               taxRate: _value('tax_rate').replaceAll(',', '.'),
+              shareCapital: _value('share_capital').isEmpty
+                  ? null
+                  : _value('share_capital').replaceAll(',', '.'),
+              supportsShareCapital: submittedShareCapital,
             ),
           );
       _fill(saved);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(_text('saved'))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _text(
+                submittedShareCapital && !saved.supportsShareCapital
+                    ? 'shareCapitalUpdateRequired'
+                    : 'saved',
+              ),
+            ),
+          ),
+        );
       }
     } on AppFailure catch (failure) {
       if (mounted) {
@@ -150,6 +170,21 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
                 _field('nis', 'NIS'),
                 _field('rc_number', 'RC'),
                 _field('article_number', 'AI'),
+                if (_supportsShareCapital)
+                  _field(
+                    'share_capital',
+                    _text('shareCapital'),
+                    keyboard: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    money: true,
+                  )
+                else if (_loadedSettings != null)
+                  Padding(
+                    key: const Key('share-capital-backend-update-required'),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(_text('shareCapitalUpdateRequired')),
+                  ),
                 _field(
                   'tax_rate',
                   _text('taxRate'),
@@ -181,6 +216,7 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
     String label, {
     bool required = false,
     bool decimal = false,
+    bool money = false,
     int maxLines = 1,
     TextInputType? keyboard,
   }) => Padding(
@@ -200,6 +236,11 @@ class _CompanySettingsScreenState extends ConsumerState<CompanySettingsScreen> {
         if (required && text.isEmpty) return _text('required');
         if (decimal && double.tryParse(text.replaceAll(',', '.')) == null) {
           return _text('invalidNumber');
+        }
+        if (money &&
+            text.isNotEmpty &&
+            !RegExp(r'^\d+(?:[.,]\d{1,2})?$').hasMatch(text)) {
+          return _text('invalidMoney');
         }
         return null;
       },
@@ -224,6 +265,11 @@ const _strings = <String, Map<String, String>>{
     'phone': 'Téléphone',
     'email': 'E-mail',
     'taxRate': 'TVA (%)',
+    'shareCapital': 'Capital social (DZD, facultatif)',
+    'shareCapitalUpdateRequired':
+        'Capital social indisponible : une mise à jour du serveur est nécessaire pour le saisir et l’enregistrer.',
+    'invalidMoney':
+        'Saisissez un montant positif ou nul, avec au plus 2 décimales.',
     'save': 'Enregistrer',
     'saved': 'Paramètres de l’entreprise enregistrés.',
     'required': 'Ce champ est obligatoire.',
@@ -237,6 +283,10 @@ const _strings = <String, Map<String, String>>{
     'phone': 'Phone',
     'email': 'Email',
     'taxRate': 'Tax rate (%)',
+    'shareCapital': 'Share capital (DZD, optional)',
+    'shareCapitalUpdateRequired':
+        'Share capital is unavailable: update the server before entering and saving it.',
+    'invalidMoney': 'Enter a nonnegative amount with at most 2 decimal places.',
     'save': 'Save',
     'saved': 'Company settings saved.',
     'required': 'This field is required.',
@@ -250,6 +300,10 @@ const _strings = <String, Map<String, String>>{
     'phone': 'الهاتف',
     'email': 'البريد الإلكتروني',
     'taxRate': 'نسبة الضريبة (%)',
+    'shareCapital': 'رأس المال (دج، اختياري)',
+    'shareCapitalUpdateRequired':
+        'رأس المال غير متاح: يلزم تحديث الخادم قبل إدخاله وحفظه.',
+    'invalidMoney': 'أدخل مبلغاً غير سالب بمنزلتين عشريتين كحد أقصى.',
     'save': 'حفظ',
     'saved': 'تم حفظ إعدادات المؤسسة.',
     'required': 'هذا الحقل مطلوب.',

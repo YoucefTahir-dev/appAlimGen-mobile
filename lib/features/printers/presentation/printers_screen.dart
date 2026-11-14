@@ -152,6 +152,9 @@ class PrintersScreen extends ConsumerWidget {
             .run(
               printer: printer,
               serverPayload: payload,
+              profile: await ref
+                  .read(printerPrintProfileStoreProvider)
+                  .read(printer),
               onStage: (stage) {
                 if (context.mounted && stage == PrinterTestStage.connected) {
                   ScaffoldMessenger.of(context).showSnackBar(

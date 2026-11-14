@@ -8,6 +8,7 @@ import 'package:app_alim_gen_mobile/features/auth/presentation/auth_controller.d
 import 'package:app_alim_gen_mobile/features/products/presentation/product_form_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice_detail_screen.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/sales_strings.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/presentation/sale_stock_notice.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
 import 'package:app_alim_gen_mobile/features/dashboard/presentation/dashboard_controller.dart';
 import 'package:app_alim_gen_mobile/features/stock/presentation/stock_screens.dart';
@@ -114,6 +115,7 @@ class _LineDraft {
   final quantity = TextEditingController(text: '1');
   final price = TextEditingController();
   bool priceManuallyEdited = false;
+  int productSelection = 0;
   double get total =>
       (int.tryParse(quantity.text) ?? 0) *
       (double.tryParse(price.text.replaceAll(',', '.')) ?? 0);
@@ -184,21 +186,32 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
     _LineDraft line,
     TransactionOption product,
   ) async {
-    line.product = product;
-    line.priceManuallyEdited = false;
+    final selection = ++line.productSelection;
+    bool isCurrent() =>
+        mounted &&
+        ref.read(sessionEpochProvider) == _intentEpoch &&
+        _lines.contains(line) &&
+        line.productSelection == selection;
+    setState(() {
+      line.product = product;
+      line.priceManuallyEdited = false;
+      line.packaging = null;
+      line.packagings = const [];
+    });
     if (_client != null) {
       try {
         final p = await ref
             .read(salesRepositoryProvider)
             .price(product.id, _client!.id);
+        if (!isCurrent()) return;
         _applyPrice(line, p);
       } catch (e) {
-        if (mounted) {
+        if (isCurrent()) {
           setState(() => _error = e is AppFailure ? e.message : e.toString());
         }
       }
     }
-    setState(() {});
+    if (isCurrent()) setState(() {});
   }
 
   void _applyPrice(_LineDraft line, Map<String, dynamic> data) {
@@ -465,6 +478,14 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
                             .searchProducts(q, clientId: _client?.id),
                         onSelected: (o) => _selectProduct(l, o),
                       ),
+                      if (l.product != null) ...[
+                        const SizedBox(height: 6),
+                        SaleStockNotice(
+                          key: ValueKey('sale-stock-$i'),
+                          product: l.product!,
+                          packaging: l.packaging,
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       if (l.packagings.isNotEmpty)
                         DropdownButtonFormField<TransactionOption?>(

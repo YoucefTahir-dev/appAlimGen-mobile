@@ -177,10 +177,13 @@ class SaleCompanyDetails {
     this.taxNumber = '',
     this.nis = '',
     this.articleNumber = '',
+    this.logoUrl,
+    this.shareCapital,
   });
 
   final String name, address, phone, email;
   final String rcNumber, taxNumber, nis, articleNumber;
+  final String? logoUrl, shareCapital;
 
   factory SaleCompanyDetails.fromJson(Map<String, dynamic> json) =>
       SaleCompanyDetails(
@@ -192,6 +195,8 @@ class SaleCompanyDetails {
         taxNumber: json['tax_number']?.toString() ?? '',
         nis: json['nis']?.toString() ?? '',
         articleNumber: json['article_number']?.toString() ?? '',
+        logoUrl: json['logo_url']?.toString(),
+        shareCapital: json['share_capital']?.toString(),
       );
 }
 
