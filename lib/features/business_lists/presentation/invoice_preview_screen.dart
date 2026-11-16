@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:app_alim_gen_mobile/app/providers.dart';
@@ -15,7 +14,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
 
 class InvoicePreviewScreen extends ConsumerStatefulWidget {
   const InvoicePreviewScreen({
@@ -164,9 +162,9 @@ class _InvoicePreviewScreenState extends ConsumerState<InvoicePreviewScreen> {
           .read(invoicesRepositoryProvider)
           .pdf(widget.sale.id);
       if (bytes.isEmpty) throw StateError('Le PDF reçu est vide.');
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/facture_${widget.sale.id}.pdf');
-      await file.writeAsBytes(bytes, flush: true);
+      final file = await ref
+          .read(invoicePdfCacheProvider)
+          .write(saleId: widget.sale.id, bytes: bytes);
       await const MethodChannel(
         'com.elamine.erp/files',
       ).invokeMethod<void>('openPdf', {'path': file.path});

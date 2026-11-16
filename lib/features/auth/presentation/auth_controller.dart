@@ -31,6 +31,7 @@ class AuthState {
 
 class AuthController extends Notifier<AuthState> {
   StreamSubscription<AppFailure>? _expiration;
+  Future<void>? _temporaryDocumentCleanup;
 
   @override
   AuthState build() {
@@ -40,6 +41,12 @@ class AuthController extends Notifier<AuthState> {
       _endSession();
     });
     ref.onDispose(() => _expiration?.cancel());
+    final cleanup = ref
+        .read(invoicePdfCacheProvider)
+        .clear()
+        .then<void>((_) {});
+    _temporaryDocumentCleanup = cleanup;
+    unawaited(cleanup);
     Future.microtask(restore);
     return const AuthState.initializing();
   }
@@ -141,7 +148,10 @@ class AuthController extends Notifier<AuthState> {
     final repository = ref.read(authRepositoryProvider);
     _log('UNAUTHENTICATED reason=logout');
     _endSession();
-    await repository.logout();
+    await Future.wait([
+      repository.logout(),
+      _temporaryDocumentCleanup ?? Future<void>.value(),
+    ]);
   }
 
   void _startSession(UserProfile user) {
@@ -152,6 +162,12 @@ class AuthController extends Notifier<AuthState> {
   void _endSession() {
     ref.read(sessionEpochProvider.notifier).rotate();
     state = const AuthState.unauthenticated();
+    final cleanup = ref
+        .read(invoicePdfCacheProvider)
+        .clear()
+        .then<void>((_) {});
+    _temporaryDocumentCleanup = cleanup;
+    unawaited(cleanup);
   }
 
   void _log(String event) {

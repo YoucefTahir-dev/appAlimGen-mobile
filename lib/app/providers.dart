@@ -1,4 +1,5 @@
 import 'package:app_alim_gen_mobile/core/errors/error_mapper.dart';
+import 'package:app_alim_gen_mobile/core/files/invoice_pdf_cache.dart';
 import 'package:app_alim_gen_mobile/core/network/api_client.dart';
 import 'package:app_alim_gen_mobile/core/network/session_events.dart';
 import 'package:app_alim_gen_mobile/core/session/session_boundary.dart';
@@ -28,6 +29,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final secureStorageProvider = Provider<FlutterSecureStorage>(
   (ref) => const FlutterSecureStorage(aOptions: AndroidOptions()),
+);
+final invoicePdfCacheProvider = Provider<InvoicePdfCache>(
+  (ref) => InvoicePdfCache(),
 );
 final tokenStorageProvider = Provider<TokenStorage>(
   (ref) => SecureTokenStorage(storage: ref.watch(secureStorageProvider)),

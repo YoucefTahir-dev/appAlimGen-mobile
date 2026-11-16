@@ -1,3 +1,9 @@
+import 'dart:io';
+
+import 'package:app_alim_gen_mobile/app/providers.dart';
+import 'package:app_alim_gen_mobile/core/errors/error_mapper.dart';
+import 'package:app_alim_gen_mobile/core/files/invoice_pdf_cache.dart';
+import 'package:app_alim_gen_mobile/features/business_lists/data/business_repositories.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/business_entities.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/domain/invoice_document.dart';
 import 'package:app_alim_gen_mobile/features/business_lists/presentation/business_list_screens.dart';
@@ -6,7 +12,9 @@ import 'package:app_alim_gen_mobile/features/business_lists/presentation/invoice
 import 'package:app_alim_gen_mobile/core/utils/app_formats.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/printer_summary.dart';
 import 'package:app_alim_gen_mobile/features/printers/domain/thermal_paper.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +112,32 @@ const _printer80 = PrinterDetails(
   isActive: true,
 );
 
+class _InvoicesRepository extends InvoicesRepository {
+  _InvoicesRepository() : super(Dio(), const ErrorMapper());
+
+  @override
+  Future<List<int>> pdf(int id) async => '%PDF-fictif-$id'.codeUnits;
+}
+
+class _RecordingInvoicePdfCache extends InvoicePdfCache {
+  _RecordingInvoicePdfCache()
+    : super(temporaryDirectory: () async => Directory.systemTemp);
+
+  int? saleId;
+  List<int>? bytes;
+
+  @override
+  Future<File> write({required int saleId, required List<int> bytes}) async {
+    this.saleId = saleId;
+    this.bytes = List<int>.of(bytes);
+    return File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}'
+      '${InvoicePdfCache.directoryName}${Platform.pathSeparator}'
+      'facture_${saleId}_123.pdf',
+    );
+  }
+}
+
 Widget _app(Widget home, {Locale locale = const Locale('fr')}) => ProviderScope(
   child: MaterialApp(
     locale: locale,
@@ -118,6 +152,56 @@ Widget _app(Widget home, {Locale locale = const Locale('fr')}) => ProviderScope(
 );
 
 void main() {
+  testWidgets('le PDF A4 est isolé puis ouvert via le FileProvider', (
+    tester,
+  ) async {
+    final cache = _RecordingInvoicePdfCache();
+    addTearDown(() async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.elamine.erp/files'),
+            null,
+          );
+    });
+    String? openedPath;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.elamine.erp/files'),
+          (call) async {
+            expect(call.method, 'openPdf');
+            openedPath = (call.arguments as Map)['path'] as String;
+            return null;
+          },
+        );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          invoicesRepositoryProvider.overrideWithValue(_InvoicesRepository()),
+          invoicePdfCacheProvider.overrideWithValue(cache),
+        ],
+        child: MaterialApp(
+          home: InvoicePreviewScreen(
+            sale: _sale(),
+            canPrint: false,
+            canViewPdf: true,
+            initialPaper: InvoicePaper.a4,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('preview-pdf-action')));
+    await tester.pumpAndSettle();
+
+    expect(cache.saleId, 7);
+    expect(cache.bytes, '%PDF-fictif-7'.codeUnits);
+    expect(openedPath, isNotNull);
+    expect(openedPath, contains(InvoicePdfCache.directoryName));
+    expect(openedPath, endsWith('facture_7_123.pdf'));
+  });
+
   testWidgets('ticket OFF minimal et A4 officiel', (tester) async {
     final data = InvoiceDocumentData(sale: _sale(showLegalInformation: false));
     await tester.pumpWidget(
