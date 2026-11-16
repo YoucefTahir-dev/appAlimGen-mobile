@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties and replace every placeholder.
+# Never commit key.properties or the keystore.
+storePassword=<private-store-password>
+keyPassword=<private-key-password>
+keyAlias=el-amine-erp
+storeFile=<absolute-path-to-private-keystore>
