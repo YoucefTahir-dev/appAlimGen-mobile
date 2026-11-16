@@ -4,6 +4,7 @@ import 'package:app_alim_gen_mobile/app/app.dart';
 import 'package:app_alim_gen_mobile/app/providers.dart';
 import 'package:app_alim_gen_mobile/app/router.dart';
 import 'package:app_alim_gen_mobile/core/errors/error_mapper.dart';
+import 'package:app_alim_gen_mobile/core/files/invoice_pdf_cache.dart';
 import 'package:app_alim_gen_mobile/core/pagination/page_data.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/auth_repository.dart';
 import 'package:app_alim_gen_mobile/features/auth/data/biometric_auth_service.dart';
@@ -170,6 +171,19 @@ class _AuthController extends AuthController {
   AuthState build() => const AuthState.authenticated(_userA);
 }
 
+class _InvoicePdfCache extends InvoicePdfCache {
+  _InvoicePdfCache([this.gate]);
+
+  final Completer<int>? gate;
+  int clearCalls = 0;
+
+  @override
+  Future<int> clear() {
+    clearCalls++;
+    return gate?.future ?? Future.value(0);
+  }
+}
+
 class _BiometricAuth implements BiometricAuthService {
   @override
   Future<BiometricAvailability> availability() async =>
@@ -193,12 +207,15 @@ void main() {
       var account = 'A';
       final lateA = Completer<PageData<ProductSummary>>();
       final logoutGate = Completer<void>();
+      final pdfCleanupGate = Completer<int>();
+      final pdfCache = _InvoicePdfCache(pdfCleanupGate);
       final products = _ProductsRepository(() => account, lateA);
       final storage = MemoryTokenStorage();
       final container = ProviderContainer(
         overrides: [
           authControllerProvider.overrideWith(_AuthController.new),
           authRepositoryProvider.overrideWithValue(_AuthRepository(logoutGate)),
+          invoicePdfCacheProvider.overrideWithValue(pdfCache),
           biometricSessionManagerProvider.overrideWithValue(
             BiometricSessionManager(
               _BiometricAuth(),
@@ -242,7 +259,13 @@ void main() {
       );
       expect(container.read(productsProvider).items, isEmpty);
 
+      var logoutCompleted = false;
+      logout.then((_) => logoutCompleted = true);
       logoutGate.complete();
+      await _flush();
+      expect(logoutCompleted, isFalse);
+      expect(pdfCache.clearCalls, 1);
+      pdfCleanupGate.complete(1);
       await logout;
       account = 'B';
       container.read(authControllerProvider.notifier).completeLogin(_userB);
@@ -280,6 +303,7 @@ void main() {
       overrides: [
         authControllerProvider.overrideWith(_AuthController.new),
         authRepositoryProvider.overrideWithValue(_AuthRepository(logoutGate)),
+        invoicePdfCacheProvider.overrideWithValue(_InvoicePdfCache()),
         biometricSessionManagerProvider.overrideWithValue(
           BiometricSessionManager(
             _BiometricAuth(),

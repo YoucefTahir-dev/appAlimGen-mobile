@@ -2,6 +2,7 @@ package com.elamine.erp
 
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -138,13 +139,22 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 try {
                     val path = call.argument<String>("path") ?: error("Chemin PDF manquant")
+                    val sharedRoot = File(cacheDir, "invoice-pdfs").canonicalFile
+                    val file = File(path).canonicalFile
+                    val sharedPrefix = sharedRoot.path + File.separator
+                    if (!file.isFile ||
+                        !file.path.startsWith(sharedPrefix) ||
+                        !Regex("^facture_[0-9]+_[0-9]+\\.pdf$").matches(file.name)) {
+                        error("Chemin PDF non autorisé")
+                    }
                     val uri = FileProvider.getUriForFile(
                         this,
                         "$packageName.fileprovider",
-                        File(path),
+                        file,
                     )
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "application/pdf")
+                        clipData = ClipData.newRawUri("invoice_pdf", uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     startActivity(intent)
