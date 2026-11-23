@@ -14,6 +14,21 @@ if (releaseKeyPropertiesFile.exists()) {
     FileInputStream(releaseKeyPropertiesFile).use(releaseKeyProperties::load)
 }
 
+fun releaseValue(property: String, environment: String): String? =
+    releaseKeyProperties.getProperty(property)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(environment)?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = releaseValue("storeFile", "ANDROID_KEYSTORE_PATH")
+val releaseStorePassword = releaseValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = releaseValue("keyAlias", "ANDROID_KEY_ALIAS")
+val releaseKeyPassword = releaseValue("keyPassword", "ANDROID_KEY_PASSWORD")
+val releaseSigningConfigured = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.elamine.erp"
     compileSdk = flutter.compileSdkVersion
@@ -37,12 +52,12 @@ android {
     }
 
     signingConfigs {
-        if (releaseKeyPropertiesFile.exists()) {
+        if (releaseSigningConfigured) {
             create("release") {
-                keyAlias = releaseKeyProperties.getProperty("keyAlias")
-                keyPassword = releaseKeyProperties.getProperty("keyPassword")
-                storeFile = file(releaseKeyProperties.getProperty("storeFile"))
-                storePassword = releaseKeyProperties.getProperty("storePassword")
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
             }
         }
     }
@@ -66,10 +81,11 @@ flutter {
 
 val validateReleaseSigning by tasks.registering {
     doLast {
-        if (releaseKeyPropertiesFile.exists()) return@doLast
+        if (releaseSigningConfigured) return@doLast
         throw GradleException(
-            "android/key.properties is required for a production release build. " +
-                "Release builds must never fall back to the debug signing key.",
+            "Production signing is incomplete. Configure android/key.properties " +
+                "or all ANDROID_KEYSTORE_* environment variables. Release builds " +
+                "must never fall back to the debug signing key.",
         )
     }
 }

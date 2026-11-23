@@ -1,0 +1,102 @@
+name: Signed Android release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['android-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-android-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up pinned Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.4'
+          channel: stable
+          cache: false
+
+      - name: Validate signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" || { echo "ANDROID_KEYSTORE_BASE64 is missing" >&2; exit 1; }
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "ANDROID_KEYSTORE_PASSWORD is missing" >&2; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "ANDROID_KEY_ALIAS is missing" >&2; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "ANDROID_KEY_PASSWORD is missing" >&2; exit 1; }
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
+
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Test release sources
+        run: |
+          flutter analyze --no-pub
+          flutter test --no-pub
+
+      - name: Build signed release APK
+        run: flutter build apk --release --no-pub --obfuscate --split-debug-info=build/debug-info
+
+      - name: Verify signature and create provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          mkdir -p build/release
+          cp "$apk" build/release/el-amine-${GITHUB_SHA}.apk
+          (
+            cd build/release
+            sha256sum "el-amine-${GITHUB_SHA}.apk" > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg commit "$GITHUB_SHA" \
+            --arg workflow "$GITHUB_WORKFLOW" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg ref "$GITHUB_REF" \
+            '{repository:$repository,commit:$commit,workflow:$workflow,run_id:$run_id,ref:$ref}' \
+            > build/release/provenance.json
+
+      - name: Store signed APK, checksum, provenance and symbols
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-android-${{ github.sha }}
+          path: |
+            build/release/*
+            build/debug-info/**
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f "$ANDROID_KEYSTORE_PATH"
