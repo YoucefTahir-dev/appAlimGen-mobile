@@ -61,6 +61,7 @@ class SalesStrings {
       'unit': 'Unité',
       'quantity': 'Quantité',
       'serverPrice': 'Prix serveur',
+      'priceLocked': 'Tarif automatique : permission requise pour le modifier',
       'manualPriceKept':
           'Prix manuel conservé : vérifiez-le après le changement de client ou de conditionnement.',
       'addProduct': 'Ajouter produit',
@@ -165,6 +166,7 @@ class SalesStrings {
       'unit': 'وحدة',
       'quantity': 'الكمية',
       'serverPrice': 'سعر الخادم',
+      'priceLocked': 'السعر تلقائي: يلزم إذن خاص لتعديله',
       'manualPriceKept':
           'تم الاحتفاظ بالسعر اليدوي. يرجى مراجعته بعد تغيير العميل أو التعبئة.',
       'addProduct': 'إضافة منتج',
@@ -268,6 +270,7 @@ class SalesStrings {
       'unit': 'Unit',
       'quantity': 'Quantity',
       'serverPrice': 'Server price',
+      'priceLocked': 'Automatic tariff: permission required to change it',
       'manualPriceKept':
           'Manual price kept. Check it after changing the client or packaging.',
       'addProduct': 'Add product',

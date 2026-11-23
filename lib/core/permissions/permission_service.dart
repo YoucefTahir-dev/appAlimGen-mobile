@@ -20,6 +20,7 @@ class AppPermissions {
   static const addSale = 'commerce.add_sale';
   static const changeSale = 'commerce.change_sale';
   static const deleteSale = 'commerce.delete_sale';
+  static const overrideSalePrice = 'commerce.override_sale_price';
   static const receivables = 'commerce.view_receivables';
   static const addCustomerPayment = 'commerce.add_customerpayment';
   static const cancelCustomerPayment = 'commerce.cancel_customerpayment';

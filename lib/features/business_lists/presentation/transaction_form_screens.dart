@@ -437,6 +437,12 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
   @override
   Widget build(BuildContext context) {
     final t = SalesStrings.of(context);
+    final canOverridePrice =
+        ref
+            .watch(authControllerProvider)
+            .user
+            ?.can(AppPermissions.overrideSalePrice) ??
+        false;
     final preview = SalePreviewTotals.calculate(
       lineTotalsCents: _lines.map((line) => line.totalCents),
       discount: _discount.text,
@@ -525,7 +531,9 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextFormField(
+                              key: ValueKey('sale-price-$i'),
                               controller: l.price,
+                              readOnly: !canOverridePrice,
                               onChanged: (_) => setState(() {
                                 l.priceManuallyEdited = true;
                               }),
@@ -535,6 +543,12 @@ class _SaleFormScreenState extends ConsumerState<SaleFormScreen> {
                                   ),
                               decoration: InputDecoration(
                                 labelText: t('serverPrice'),
+                                suffixIcon: canOverridePrice
+                                    ? null
+                                    : Tooltip(
+                                        message: t('priceLocked'),
+                                        child: const Icon(Icons.lock_outline),
+                                      ),
                               ),
                               validator: (v) => double.tryParse(v ?? '') == null
                                   ? t('invalidPrice')
