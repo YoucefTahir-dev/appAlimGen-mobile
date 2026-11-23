@@ -59,6 +59,14 @@ jobs:
           flutter analyze --no-pub
           flutter test --no-pub
 
+      - name: Remove test-only Android registrant
+        shell: bash
+        run: |
+          set -euo pipefail
+          # flutter test generates a debug registrant containing integration_test.
+          # Removing it forces flutter build to regenerate a release-only file.
+          rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
       - name: Build signed release APK
         run: flutter build apk --release --no-pub --obfuscate --split-debug-info=build/debug-info
 
@@ -67,6 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           apk="build/app/outputs/flutter-apk/app-release.apk"
+          ! grep -q 'integration_test' android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
           build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           "$build_tools/apksigner" verify --verbose --print-certs "$apk"
           mkdir -p build/release

@@ -40,4 +40,22 @@ void main() {
     expect(gradle, contains('ANDROID_KEYSTORE_PATH'));
     expect(gradle, isNot(contains('signingConfigs.getByName("debug")')));
   });
+
+  test('signed release removes the test-only Android registrant', () {
+    final workflow = File(
+      '.github/workflows/android-release.yml',
+    ).readAsStringSync();
+    expect(
+      workflow,
+      contains(
+        'rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java',
+      ),
+    );
+    expect(
+      workflow,
+      contains(
+        "! grep -q 'integration_test' android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
+      ),
+    );
+  });
 }
